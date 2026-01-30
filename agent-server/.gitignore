@@ -3,8 +3,8 @@ target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
-llm_conf.json
-*.json
+#llm_conf.json
+#*.json
 
 ### STS ###
 .apt_generated

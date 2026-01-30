@@ -3,4 +3,4 @@ spring:
     name: agent-server
 
 server:
-  port: 8080
+  port: 8001

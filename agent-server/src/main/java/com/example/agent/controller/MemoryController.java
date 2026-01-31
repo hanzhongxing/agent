@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/session")
+@RequestMapping("/api/memory")
 @CrossOrigin(origins = "*")
 public class MemoryController {
     private final Logger logger= LoggerFactory.getLogger(MemoryController.class);

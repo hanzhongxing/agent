@@ -84,20 +84,20 @@ export const chatApi = {
 
     // Session Management
     async getSessions() {
-        const response = await axios.get(`${API_URL}/chat/sessions`);
+        const response = await axios.get(`${API_URL}/session/sessions`);
         return response.data;
     },
 
     async saveSession(session) {
-        await axios.post(`${API_URL}/chat/sessions`, session);
+        await axios.post(`${API_URL}/session/sessions`, session);
     },
 
     async deleteSession(sessionId) {
-        await axios.delete(`${API_URL}/chat/sessions/${sessionId}`);
+        await axios.delete(`${API_URL}/session/sessions/${sessionId}`);
     },
 
     async getSessionMessages(sessionId) {
-        const response = await axios.get(`${API_URL}/chat/sessions/${sessionId}/messages`);
+        const response = await axios.get(`${API_URL}/memory/sessions/${sessionId}/messages`);
         return response.data;
     },
 

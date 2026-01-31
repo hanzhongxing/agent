@@ -2,11 +2,8 @@ package com.example.agent.config;
 
 import com.example.agent.model.ModelConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
-import dev.langchain4j.store.embedding.EmbeddingStore;
-import dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,6 +25,9 @@ public class EmbeddingConfig {
     @Bean
     public EmbeddingModel embeddingModel() {
         ModelConfig modelConfig=getEmbeddingModelConf();
+        if(modelConfig==null){
+            throw new RuntimeException("embed llm conf is null");
+        }
         return OpenAiEmbeddingModel.builder()
                 .baseUrl(modelConfig.getBaseUrl())
                 .apiKey(modelConfig.getApiKey())
@@ -36,18 +36,12 @@ public class EmbeddingConfig {
                 .build();
     }
 
-    @Bean
-    public EmbeddingStore<TextSegment> embeddingStore(){
-        return new InMemoryEmbeddingStore<>();
-    }
-
     private ModelConfig getEmbeddingModelConf(){
-        ModelConfig modelConfig=new ModelConfig();
         try {
-            objectMapper.writerWithDefaultPrettyPrinter().writeValue(new File(agentConfig.getEmbedFilePath()), modelConfig);
+            return objectMapper.readValue(new File(agentConfig.getEmbedFilePath()),ModelConfig.class);
         } catch (IOException e) {
             logger.error(e.getMessage(),e);
         }
-        return modelConfig;
+        return null;
     }
 }

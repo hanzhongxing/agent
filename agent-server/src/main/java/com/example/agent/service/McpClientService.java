@@ -9,7 +9,7 @@ import java.util.Map;
 @Service
 public class McpClientService {
 
-    @Autowired
+    @Autowired(required = false)
     private RestClient restClient;
 
     public String callTool(String mcpServerUrl, String toolName, Map<String, Object> arguments) {

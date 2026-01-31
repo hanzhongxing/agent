@@ -22,6 +22,12 @@ public class ConfigController {
         return modelConfigService.getAllConfigs();
     }
 
+    @GetMapping("/chat")
+    public List<ModelConfig> getModels4Chat() {
+        return modelConfigService.getChatConfigs();
+    }
+
+
     @PostMapping
     public ModelConfig addModel(@RequestBody ModelConfig config) {
         return modelConfigService.addConfig(config);

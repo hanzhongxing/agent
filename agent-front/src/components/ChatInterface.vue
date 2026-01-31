@@ -74,7 +74,7 @@
            </div>
            <div class="header-actions">
              <el-tooltip content="Settings" placement="bottom">
-                <el-button circle text @click="showSettingsDialog = true"><el-icon><Setting /></el-icon></el-button>
+                <el-button circle text @click="openSetting"><el-icon><Setting /></el-icon></el-button>
              </el-tooltip>
            </div>
         </div>
@@ -347,6 +347,7 @@ const currentSession = computed(() => {
 const selectedModel = ref('');
 const modelOptions = ref([]);
 const activeTab = ref('list');
+const allModel=ref([]);
 const newModel = ref({
   name: '',
   baseUrl: '',
@@ -354,6 +355,11 @@ const newModel = ref({
   modelName: '',
   embed: false
 });
+
+const openSetting = () => {
+   showSettingsDialog.value = true;
+   loadModels();
+};
 
 // Computed
 const getCurrentModelName = computed(() => {
@@ -365,17 +371,26 @@ const isEditing = computed(() => !!newModel.value.id);
 
 // Lifecycle
 onMounted(async () => {
-   await loadModels();
+   await loadChatModels();
    await loadSessions();
 });
 
-const loadModels = async () => {
+const loadChatModels = async () => {
     try {
-       const models = await chatApi.getModels();
+       const models = await chatApi.getChatModels();
        modelOptions.value = models;
        if (models.length > 0 && !selectedModel.value) {
           selectedModel.value = models[0].id;
        }
+    } catch (e) {
+      console.error("Failed to load models", e);
+   }
+};
+
+const loadModels = async () => {
+    try {
+       const models = await chatApi.getModels();
+       allModel.value = models;
     } catch (e) {
       console.error("Failed to load models", e);
    }

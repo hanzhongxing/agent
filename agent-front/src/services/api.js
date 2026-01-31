@@ -102,6 +102,11 @@ export const chatApi = {
     },
 
     // Model Management
+    async getChatModels() {
+        const response = await axios.get(`${API_URL}/models/chat`);
+        return response.data;
+    },
+
     async getModels() {
         const response = await axios.get(`${API_URL}/models`);
         return response.data;

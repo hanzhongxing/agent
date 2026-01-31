@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-public class RagService {
+public class RagService extends BaseService{
     private final static Logger logger= LoggerFactory.getLogger(RagService.class);
 
     @Autowired
@@ -47,25 +47,35 @@ public class RagService {
     }
 
     public void ingestDocument(Document document) {
-        TextSegment segment = TextSegment.from(document.text(), document.metadata());
-        try {
-            Embedding embedding = embeddingModel.embed(segment).content();
-            logger.debug("Adding embedding for document, model={}, segmentLength={}", embeddingModel, segment.text().length());
-            embeddingStore.add(embedding, segment);
-        } catch (Throwable t) {
-            logger.error("Failed to add embedding for document {}", document.metadata(), t);
-        }
+        executor.execute(new Runnable() {
+            @Override
+            public void run() {
+                TextSegment segment = TextSegment.from(document.text(), document.metadata());
+                try {
+                    Embedding embedding = embeddingModel.embed(segment).content();
+                    logger.debug("Adding embedding for document, model={}, segmentLength={}", embeddingModel, segment.text().length());
+                    embeddingStore.add(embedding, segment);
+                } catch (Throwable t) {
+                    logger.error("Failed to add embedding for document {}", document.metadata(), t);
+                }
+            }
+        });
     }
 
     public void ingest(String content) {
-        TextSegment segment = TextSegment.from(content);
-        try {
-            Embedding embedding = embeddingModel.embed(segment).content();
-            logger.debug("Adding embedding for content, model={}, segmentLength={}", embeddingModel, segment.text().length());
-            embeddingStore.add(embedding, segment);
-        } catch (Throwable t) {
-            logger.error("Failed to add embedding for content segment", t);
-        }
+        executor.execute(new Runnable() {
+            @Override
+            public void run() {
+                TextSegment segment = TextSegment.from(content);
+                try {
+                    Embedding embedding = embeddingModel.embed(segment).content();
+                    logger.debug("Adding embedding for content, model={}, segmentLength={}", embeddingModel, segment.text().length());
+                    embeddingStore.add(embedding, segment);
+                } catch (Throwable t) {
+                    logger.error("Failed to add embedding for content segment", t);
+                }
+            }
+        });
     }
 
     public List<TextSegment> search(String query) {

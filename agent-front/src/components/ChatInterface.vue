@@ -207,7 +207,7 @@
     </el-dialog>
 
     <!-- Settings Dialog -->
-    <el-dialog v-model="showSettingsDialog" title="Model Configuration" width="750px" class="premium-dialog" center align-center>
+    <el-dialog v-model="showSettingsDialog" title="Configuration" width="750px" class="premium-dialog" center align-center>
       <div class="dialog-layout">
         <div class="settings-sidebar">
           <div 

@@ -13,9 +13,7 @@ import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
 import java.io.File;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -31,7 +29,7 @@ public class RagService {
     private EmbeddingStore<TextSegment> embeddingStore;
 
     @Autowired
-    private EmbeddingModel embeddingModel;
+    private EmbeddingService embeddingService;
 
     @PostConstruct
     public void init() {
@@ -50,17 +48,34 @@ public class RagService {
 
     public void ingestDocument(Document document) {
         TextSegment segment = TextSegment.from(document.text(), document.metadata());
-        Embedding embedding = embeddingModel.embed(segment).content();
-        embeddingStore.add(embedding, segment);
+        List<EmbeddingModel> models=embeddingService.getEmbeddingModels();
+        if(models==null||models.isEmpty()){
+            return;
+        }
+        for(EmbeddingModel embeddingModel:models) {
+            Embedding embedding = embeddingModel.embed(segment).content();
+            embeddingStore.add(embedding, segment);
+        }
     }
 
     public void ingest(String content) {
         TextSegment segment = TextSegment.from(content);
-        Embedding embedding = embeddingModel.embed(segment).content();
-        embeddingStore.add(embedding, segment);
+        List<EmbeddingModel> models=embeddingService.getEmbeddingModels();
+        if(models==null||models.isEmpty()){
+            return;
+        }
+        for(EmbeddingModel embeddingModel:models) {
+            Embedding embedding = embeddingModel.embed(segment).content();
+            embeddingStore.add(embedding, segment);
+        }
     }
 
     public List<TextSegment> search(String query) {
+        List<EmbeddingModel> models=embeddingService.getEmbeddingModels();
+        if(models==null||models.isEmpty()){
+            return null;
+        }
+        EmbeddingModel embeddingModel=models.getFirst();
         Embedding queryEmbedding = embeddingModel.embed(query).content();
         List<EmbeddingMatch<TextSegment>> matches = embeddingStore.findRelevant(queryEmbedding, 5, 0.7);
         return matches.stream().map(EmbeddingMatch::embedded).collect(Collectors.toList());

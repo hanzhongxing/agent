@@ -9,6 +9,9 @@ import dev.langchain4j.model.StreamingResponseHandler;
 import dev.langchain4j.model.chat.StreamingChatLanguageModel;
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
 import dev.langchain4j.model.output.Response;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import java.time.Duration;
@@ -20,14 +23,13 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/chat")
 @CrossOrigin(origins = "*")
 public class ChatController {
+    private final static Logger logger= LoggerFactory.getLogger(ChatController.class);
 
-    private final RagService ragService;
-    private final ModelConfigService modelConfigService;
+    @Autowired
+    private RagService ragService;
 
-    public ChatController(RagService ragService, ModelConfigService modelConfigService) {
-        this.ragService = ragService;
-        this.modelConfigService = modelConfigService;
-    }
+    @Autowired
+    private ModelConfigService modelConfigService;
 
     @PostMapping(produces = "text/event-stream")
     public Flux<String> chat(@RequestBody Map<String, Object> request) {
@@ -61,16 +63,19 @@ public class ChatController {
             client.generate(finalPrompt, new StreamingResponseHandler<AiMessage>() {
                 @Override
                 public void onNext(String token) {
+                    logger.info("onNext token:{}",token);
                     sink.next(token);
                 }
 
                 @Override
                 public void onComplete(Response<AiMessage> response) {
+                    logger.info("onComplete response:{}",response);
                     sink.complete();
                 }
 
                 @Override
                 public void onError(Throwable error) {
+                    logger.error(error.getMessage(),error);
                     sink.error(error);
                 }
             });

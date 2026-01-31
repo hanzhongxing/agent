@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8080/api';
+const API_URL = 'http://localhost:8001/api';
 
 export const chatApi = {
     // Chat & RAG
@@ -31,18 +31,23 @@ export const chatApi = {
             if (done) break;
 
             const chunk = decoder.decode(value, { stream: true });
-            // Handle SSE format "data: token\n\n" or raw text (Spring Flux usually sends raw text if not configured for SSE specifically, but produces SSE as requested)
-            // If produces = "text/event-stream", we might get "data: ..."
-            // Let's handle both raw and tokenized
+
+            // Handle SSE format "data: token\n\n"
+            // Spring Flux might send multiple data lines in one chunk or partial lines
             const lines = chunk.split('\n');
             for (const line of lines) {
-                if (line.trim() === '') continue;
+                if (!line) continue;
+
                 let token = line;
                 if (line.startsWith('data:')) {
-                    token = line.substring(5).trim();
+                    token = line.substring(5);
+                    // If it was "data: ", keep the space. If it was "data:token", it's still "token".
                 }
-                fullContent += token;
-                if (onChunk) onChunk(token);
+
+                if (token) {
+                    fullContent += token;
+                    if (onChunk) onChunk(token);
+                }
             }
         }
         return fullContent;

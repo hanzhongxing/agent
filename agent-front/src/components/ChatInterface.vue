@@ -385,19 +385,46 @@ const sendMessage = async () => {
   await scrollToBottom();
 
   try {
-    const assistantMsg = { role: 'assistant', content: '' };
-    messages.value.push(assistantMsg);
+    const assistantMsg = ref({ role: 'assistant', content: '' });
+    messages.value.push(assistantMsg.value);
+
+    let charQueue = [];
+    let isTyping = false;
+    let streamingFinished = false;
+
+    const startTypewriter = () => {
+      if (isTyping) return;
+      isTyping = true;
+      
+      const interval = setInterval(() => {
+        if (charQueue.length > 0) {
+          // Progressively hide loading once we start receiving content
+          loading.value = false; 
+          assistantMsg.value.content += charQueue.shift();
+          scrollToBottom();
+        } else if (streamingFinished) {
+          clearInterval(interval);
+          isTyping = false;
+        }
+      }, 20); // Adjust speed here (20ms per character)
+    };
 
     await chatApi.sendMessage(userMsg, useRag.value, selectedModel.value, (token) => {
-      assistantMsg.content += token;
-      scrollToBottom();
+      // Split token into characters and add to queue
+      charQueue.push(...token.split(''));
+      startTypewriter();
     });
+
+    streamingFinished = true;
   } catch (error) {
     console.error(error);
     messages.value.push({ role: 'assistant', content: 'Connection Error: Please ensure the backend is running.' });
   } finally {
-    loading.value = false;
-    await scrollToBottom();
+    // If no tokens were ever received, we still need to stop loading
+    setTimeout(() => {
+        loading.value = false;
+        scrollToBottom();
+    }, 500);
   }
 };
 

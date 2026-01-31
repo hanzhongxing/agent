@@ -1,5 +1,6 @@
 package com.example.agent.service;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -8,11 +9,8 @@ import java.util.Map;
 @Service
 public class McpClientService {
 
-    private final RestClient restClient;
-
-    public McpClientService(RestClient.Builder builder) {
-        this.restClient = builder.build();
-    }
+    @Autowired
+    private RestClient restClient;
 
     public String callTool(String mcpServerUrl, String toolName, Map<String, Object> arguments) {
         // Simple JSON-RPC-like call to a hypothetical HTTP MCP endpoint

@@ -31,6 +31,12 @@ public class AgentConfig {
     @Value("${agent.rag.folder}")
     private String ragFolder;
 
+    @Value("${agent.embedding.folder}")
+    private String embeddingFolder;
+
+    @Value("${agent.embedding.file}")
+    private String embeddingFile;
+
     public String getLlmFilePath(){
         return AgentFileUtil.getFilePath(basePath,llmFolder,llmFile);
     }
@@ -45,5 +51,9 @@ public class AgentConfig {
 
     public String getRAGFilePath(){
         return AgentFileUtil.getFilePath(basePath,ragFolder);
+    }
+
+    public String getEmbedFilePath() {
+        return AgentFileUtil.getFilePath(basePath,embeddingFolder,embeddingFile);
     }
 }

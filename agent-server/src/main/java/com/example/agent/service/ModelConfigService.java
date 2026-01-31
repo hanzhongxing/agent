@@ -80,8 +80,7 @@ public class ModelConfigService {
         File file = new File(agentConfig.getLlmFilePath());
         if (file.exists()) {
             try {
-                List<ModelConfig> loaded = objectMapper.readValue(file, new TypeReference<List<ModelConfig>>() {
-                });
+                List<ModelConfig> loaded = objectMapper.readValue(file, new TypeReference<List<ModelConfig>>() {});
                 modelConfigs.clear();
                 modelConfigs.addAll(loaded);
             } catch (IOException e) {

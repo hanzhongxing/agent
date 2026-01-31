@@ -67,11 +67,12 @@ public class RagFileController {
             file.transferTo(target);
 
             // trigger reindex in background to avoid blocking upload
+            Path finalTarget = target;
             new Thread(() -> {
                 try {
                     ragService.reindexAll();
                 } catch (Exception e) {
-                    logger.error("Reindex failed for uploaded file: {}", target, e);
+                    logger.error("Reindex failed for uploaded file: {}", finalTarget.getFileName(), e);
                 }
             }, "rag-reindex-thread").start();
 

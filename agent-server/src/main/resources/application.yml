@@ -1,6 +1,8 @@
 spring:
   application:
     name: agent-server
+  main:
+    allow-circular-references: true
 
 server:
   port: 8001
@@ -19,4 +21,8 @@ agent:
     file: memory.json
   rag:
     folder: rag
+  embedding:
+    folder: embed
+    file: embed.json
+
 

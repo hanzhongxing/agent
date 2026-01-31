@@ -29,7 +29,7 @@ public class RagService {
     private EmbeddingStore<TextSegment> embeddingStore;
 
     @Autowired
-    private EmbeddingService embeddingService;
+    private EmbeddingModel embeddingModel;
 
     @PostConstruct
     public void init() {
@@ -48,34 +48,27 @@ public class RagService {
 
     public void ingestDocument(Document document) {
         TextSegment segment = TextSegment.from(document.text(), document.metadata());
-        List<EmbeddingModel> models=embeddingService.getEmbeddingModels();
-        if(models==null||models.isEmpty()){
-            return;
-        }
-        for(EmbeddingModel embeddingModel:models) {
+        try {
             Embedding embedding = embeddingModel.embed(segment).content();
+            logger.debug("Adding embedding for document, model={}, segmentLength={}", embeddingModel, segment.text().length());
             embeddingStore.add(embedding, segment);
+        } catch (Throwable t) {
+            logger.error("Failed to add embedding for document {}", document.metadata(), t);
         }
     }
 
     public void ingest(String content) {
         TextSegment segment = TextSegment.from(content);
-        List<EmbeddingModel> models=embeddingService.getEmbeddingModels();
-        if(models==null||models.isEmpty()){
-            return;
-        }
-        for(EmbeddingModel embeddingModel:models) {
+        try {
             Embedding embedding = embeddingModel.embed(segment).content();
+            logger.debug("Adding embedding for content, model={}, segmentLength={}", embeddingModel, segment.text().length());
             embeddingStore.add(embedding, segment);
+        } catch (Throwable t) {
+            logger.error("Failed to add embedding for content segment", t);
         }
     }
 
     public List<TextSegment> search(String query) {
-        List<EmbeddingModel> models=embeddingService.getEmbeddingModels();
-        if(models==null||models.isEmpty()){
-            return null;
-        }
-        EmbeddingModel embeddingModel=models.getFirst();
         Embedding queryEmbedding = embeddingModel.embed(query).content();
         List<EmbeddingMatch<TextSegment>> matches = embeddingStore.findRelevant(queryEmbedding, 5, 0.7);
         return matches.stream().map(EmbeddingMatch::embedded).collect(Collectors.toList());

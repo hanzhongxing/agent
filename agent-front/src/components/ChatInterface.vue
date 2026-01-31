@@ -6,7 +6,7 @@
         <div class="sidebar-header">
           <div class="logo">
             <el-icon :size="24" color="#fff"><Cpu /></el-icon>
-            <span v-if="!isSidebarCollapsed">Agent AI</span>
+            <span v-if="!isSidebarCollapsed">My Agent AI</span>
           </div>
           <el-button link @click="isSidebarCollapsed = !isSidebarCollapsed" class="collapse-btn">
             <el-icon color="#94a3b8"><Fold v-if="!isSidebarCollapsed" /><Expand v-else /></el-icon>
@@ -35,20 +35,17 @@
             </div>
           </div>
 
-          <div class="section-title" style="margin-top: 20px">OPTIONS</div>
+          <div class="section-title" style="margin-top: 10px">OPTIONS</div>
           
           <div class="control-card">
             <div class="control-row">
               <span class="label">Knowledge Base (RAG)</span>
               <el-switch v-model="currentSession.useRag" size="small" active-color="#6366f1" @change="syncSession(currentSession)" />
             </div>
-            <p class="description">Enable to use uploaded documents for improved context.</p>
-            
-            <div class="control-row" style="margin-top: 20px">
+            <div class="control-row" style="margin-top: 10px">
               <span class="label">Context Memory</span>
               <el-switch v-model="currentSession.useMemory" size="small" active-color="#6366f1" @change="syncSession(currentSession)" />
             </div>
-            <p class="description">Assistant remembers previous parts of the conversation.</p>
           </div>
 
           <div class="action-buttons">
@@ -57,10 +54,6 @@
               <span>Upload Documents</span>
             </el-button>
           </div>
-        </div>
-        
-        <div class="sidebar-footer" v-show="!isSidebarCollapsed">
-           <span class="status-dot"></span> Online
         </div>
       </div>
 
@@ -691,9 +684,9 @@ const formatSize = (bytes) => {
 }
 
 .chat-window {
-  width: 1200px;
+  width: 95%;
   max-width: 95vw;
-  height: 85vh;
+  height: 95vh;
   background: white;
   border-radius: 20px;
   box-shadow: 0 20px 50px rgba(0,0,0,0.1);
@@ -718,7 +711,7 @@ const formatSize = (bytes) => {
 }
 
 .sidebar-header {
-  height: 70px;
+  height: 35px;
   display: flex;
   align-items: center;
   padding: 0 20px;
@@ -731,29 +724,32 @@ const formatSize = (bytes) => {
   align-items: center;
   gap: 10px;
   font-weight: 700;
-  font-size: 18px;
+  font-size: 16px;
   color: #fff;
 }
 
 .sidebar-content {
   flex: 1;
-  padding: 30px 20px;
+  padding: 10px 16px; /* reduce padding to give more space to list */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .section-title {
   font-size: 10px;
   text-transform: uppercase;
   color: #6b7280;
-  margin-bottom: 15px;
+  margin-bottom: 10px;
   font-weight: 600;
   letter-spacing: 1px;
 }
 
 .control-card {
   background: #1f2937;
-  padding: 15px;
+  padding: 12px;
   border-radius: 12px;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 .control-row {
@@ -781,9 +777,9 @@ const formatSize = (bytes) => {
   background: transparent;
   border: 1px solid #374151;
   color: #d1d5db;
-  margin-bottom: 10px;
+  /* margin-bottom: 10px; */
   margin-left: 0 !important;
-  height: 42px;
+  height: 30px;
 }
 
 .sidebar-btn:hover {
@@ -801,25 +797,22 @@ const formatSize = (bytes) => {
   background: #4338ca;
 }
 
-.sidebar-footer {
-  padding: 20px;
-  border-top: 1px solid #1f2937;
-  font-size: 12px;
-  color: #9ca3af;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
+/* sidebar-footer removed to give more space to chats */
 
 .session-actions {
-  margin-bottom: 20px;
+  margin-bottom: 10px;
 }
 
 .sessions-list {
-  max-height: 250px;
+  flex: 2; /* allocate more vertical space to chats */
   overflow-y: auto;
-  margin-bottom: 20px;
+  margin-bottom: 10px;
   padding-right: 5px;
+}
+
+.action-buttons {
+  margin-top: auto;
+  margin-bottom: 10px;
 }
 
 .sessions-list::-webkit-scrollbar {

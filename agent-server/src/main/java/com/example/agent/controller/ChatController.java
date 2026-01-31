@@ -78,7 +78,7 @@ public class ChatController {
                 client.generate(chatMessages, new StreamingResponseHandler<AiMessage>() {
                     @Override
                     public void onNext(String token) {
-                        logger.info("onNext token:{}", token);
+                        logger.debug("onNext token:{}", token);
                         fullResponse.append(token);
                         sink.next(token);
                     }

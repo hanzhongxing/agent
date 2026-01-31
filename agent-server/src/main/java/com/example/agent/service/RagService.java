@@ -39,16 +39,6 @@ public class RagService {
     }
 
     public synchronized void reindexAll() {
-        // Since we are using InMemoryEmbeddingStore, we just clear and reload
-        // In a real app with persistent store, we'd be more selective
-        // For now, let's assume we can clear the memory store
-        // Actually, InMemoryEmbeddingStore doesn't have a clear() method in standard
-        // API
-        // But we can just "forget" it if we were creating it here.
-        // Since it's a bean, we might need a different approach if we want to clear it.
-        // For simplicity in this dev task, let's just add new ones,
-        // but ideally we'd want to clear it.
-
         File dir = new File(basePath+"/"+ragFolder);
         if (dir.exists() && dir.isDirectory()) {
             List<Document> documents = FileSystemDocumentLoader.loadDocuments(basePath+"/"+ragFolder, new ApacheTikaDocumentParser());
@@ -59,10 +49,7 @@ public class RagService {
     }
 
     public void ingestDocument(Document document) {
-        // In LangChain4j 0.32.0, Document doesn't have textSegment() directly
-        // We convert Document to TextSegment, preserving metadata
         TextSegment segment = TextSegment.from(document.text(), document.metadata());
-
         Embedding embedding = embeddingModel.embed(segment).content();
         embeddingStore.add(embedding, segment);
     }

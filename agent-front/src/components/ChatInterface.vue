@@ -73,7 +73,7 @@
              <span class="model-badge">{{ getCurrentModelName }}</span>
            </div>
            <div class="header-actions">
-             <el-tooltip content="Model Settings" placement="bottom">
+             <el-tooltip content="Settings" placement="bottom">
                 <el-button circle text @click="showSettingsDialog = true"><el-icon><Setting /></el-icon></el-button>
              </el-tooltip>
            </div>
@@ -684,9 +684,9 @@ const formatSize = (bytes) => {
 }
 
 .chat-window {
-  width: 95%;
+  width: 90%;
   max-width: 95vw;
-  height: 95vh;
+  height: 90vh;
   background: white;
   border-radius: 20px;
   box-shadow: 0 20px 50px rgba(0,0,0,0.1);

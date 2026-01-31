@@ -1,15 +1,17 @@
 package com.example.agent.service;
 
 import com.example.agent.model.ChatSession;
+import com.example.agent.util.AgentFileUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.UserMessage;
 import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -20,15 +22,26 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 @Service
 public class MemoryService {
+    private final static Logger logger= LoggerFactory.getLogger(MemoryService.class);
 
-    @Value("agent.base_path")
+    @Value("agent.base.path")
     private String basePath;
+
+    @Value("agent.session.folder")
+    private String sessionFolder;
+
+    @Value("agent.session.file")
+    private String sessionFile;
+
+    @Value("agent.memory.folder")
+    private String memoryFolder;
+
+    @Value("agent.memory.file")
+    private String memoryFile;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ConcurrentHashMap<String, List<ChatMessage>> sessionMessages = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ChatSession> sessionMetadata = new ConcurrentHashMap<>();
-    private static final String SESSION_FILE_PATH = "session";
-    private static final String MEMORY_FILE_PATH = "memory";
     private static final int MAX_MESSAGES = 50;
 
     @PostConstruct
@@ -83,7 +96,7 @@ public class MemoryService {
     }
 
     private void loadSessions() {
-        File file = new File(basePath+SESSION_FILE_PATH);
+        File file = new File(AgentFileUtil.getFilePath(basePath,sessionFolder,sessionFile));
         if (file.exists()) {
             try {
                 Map<String, ChatSession> loaded = objectMapper.readValue(file,
@@ -91,13 +104,13 @@ public class MemoryService {
                         });
                 sessionMetadata.putAll(loaded);
             } catch (IOException e) {
-                e.printStackTrace();
+                logger.error(e.getMessage(),e);
             }
         }
     }
 
     private void loadMessages() {
-        File file = new File(basePath+MEMORY_FILE_PATH);
+        File file = new File(AgentFileUtil.getFilePath(basePath,memoryFolder,memoryFile));
         if (file.exists()) {
             try {
                 Map<String, List<Map<String, String>>> root = objectMapper.readValue(file,
@@ -117,7 +130,7 @@ public class MemoryService {
                     sessionMessages.put(sessionEntry.getKey(), messages);
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+                logger.error(e.getMessage(),e);
             }
         }
     }
@@ -129,7 +142,7 @@ public class MemoryService {
 
     private synchronized void saveSessions() {
         try {
-            objectMapper.writerWithDefaultPrettyPrinter().writeValue(new File(basePath+SESSION_FILE_PATH), sessionMetadata);
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(new File(AgentFileUtil.getFilePath(basePath,sessionFolder,sessionFolder)), sessionMetadata);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -153,9 +166,10 @@ public class MemoryService {
                 }
                 msgsData.put(sessionEntry.getKey(), sessionMsgs);
             }
-            objectMapper.writerWithDefaultPrettyPrinter().writeValue(new File(basePath+MEMORY_FILE_PATH), msgsData);
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(new File(AgentFileUtil.getFilePath(basePath,memoryFolder,memoryFile)), msgsData);
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.error(e.getMessage(),e);
         }
     }
+
 }

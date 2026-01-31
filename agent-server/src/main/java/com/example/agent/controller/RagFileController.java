@@ -1,6 +1,7 @@
 package com.example.agent.controller;
 
 import com.example.agent.service.RagService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -21,13 +22,18 @@ import java.util.UUID;
 @CrossOrigin(origins = "*")
 public class RagFileController {
 
+    @Value("agent.base.path")
+    private String basePath;
+
+    @Value("agent.rag.folder")
+    private String ragFolder;
+
     private final RagService ragService;
-    private static final String RAG_DIR = "src/main/resources/data/rag";
 
     public RagFileController(RagService ragService) {
         this.ragService = ragService;
         // Ensure directory exists
-        File dir = new File(RAG_DIR);
+        File dir = new File(basePath+"/"+ragFolder);
         if (!dir.exists()) {
             dir.mkdirs();
         }
@@ -39,7 +45,7 @@ public class RagFileController {
             return ResponseEntity.badRequest().body("File is empty");
         }
         try {
-            Path path = Paths.get(RAG_DIR, file.getOriginalFilename());
+            Path path = Paths.get(basePath+"/"+ragFolder, file.getOriginalFilename());
             file.transferTo(path);
             ragService.reindexAll(); // Simple reindex for now
             return ResponseEntity.ok("File uploaded successfully");
@@ -62,7 +68,7 @@ public class RagFileController {
             title += ".txt";
         }
         try {
-            Path path = Paths.get(RAG_DIR, title);
+            Path path = Paths.get(basePath+"/"+ragFolder, title);
             Files.write(path, content.getBytes(StandardCharsets.UTF_8));
             ragService.reindexAll();
             return ResponseEntity.ok("Text saved successfully as " + title);
@@ -74,7 +80,7 @@ public class RagFileController {
     @GetMapping("/files")
     public List<Map<String, Object>> listFiles() {
         List<Map<String, Object>> files = new ArrayList<>();
-        File dir = new File(RAG_DIR);
+        File dir = new File(basePath+"/"+ragFolder);
         if (dir.exists() && dir.isDirectory()) {
             File[] fileList = dir.listFiles();
             if (fileList != null) {
@@ -94,7 +100,7 @@ public class RagFileController {
     @DeleteMapping("/files/{filename}")
     public ResponseEntity<String> deleteFile(@PathVariable String filename) {
         try {
-            Path path = Paths.get(RAG_DIR, filename);
+            Path path = Paths.get(basePath+"/"+ragFolder, filename);
             if (Files.deleteIfExists(path)) {
                 ragService.reindexAll();
                 return ResponseEntity.ok("File deleted successfully");

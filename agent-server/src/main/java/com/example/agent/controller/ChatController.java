@@ -29,7 +29,6 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/chat")
 @CrossOrigin(origins = "*")
 public class ChatController {
-    // ... existed field and chat method ...
 
     @GetMapping("/sessions")
     public List<ChatSession> getSessions() {

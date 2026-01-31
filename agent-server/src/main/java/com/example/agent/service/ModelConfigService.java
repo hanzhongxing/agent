@@ -1,9 +1,13 @@
 package com.example.agent.service;
 
 import com.example.agent.model.ModelConfig;
+import com.example.agent.util.AgentFileUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -15,13 +19,19 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 @Service
 public class ModelConfigService {
+    private final static Logger logger= LoggerFactory.getLogger(ModelConfigService.class);
+
+    @Value("agent.base.path")
+    private String basePath;
+
+    @Value("agent.llm.folder")
+    private String llmFolder;
+
+    @Value("agent.llm.file")
+    private String llmFile;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final List<ModelConfig> modelConfigs = new CopyOnWriteArrayList<>();
-
-    // We use the source file in resources directly for persistence in this
-    // development environment.
-    private static final String CONFIG_FILE_PATH = "src/main/resources/data/conf/llm_conf.json";
 
     @PostConstruct
     public void init() {
@@ -74,7 +84,7 @@ public class ModelConfigService {
     }
 
     private void loadConfigs() {
-        File file = new File(CONFIG_FILE_PATH);
+        File file = new File(AgentFileUtil.getFilePath(basePath,llmFolder,llmFile));
         if (file.exists()) {
             try {
                 List<ModelConfig> loaded = objectMapper.readValue(file, new TypeReference<List<ModelConfig>>() {
@@ -82,16 +92,16 @@ public class ModelConfigService {
                 modelConfigs.clear();
                 modelConfigs.addAll(loaded);
             } catch (IOException e) {
-                e.printStackTrace();
+               logger.error(e.getMessage(),e);
             }
         }
     }
 
     private synchronized void saveConfigs() {
         try {
-            objectMapper.writerWithDefaultPrettyPrinter().writeValue(new File(CONFIG_FILE_PATH), modelConfigs);
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(new File(AgentFileUtil.getFilePath(basePath,llmFolder,llmFile)), modelConfigs);
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.error(e.getMessage(),e);
         }
     }
 }

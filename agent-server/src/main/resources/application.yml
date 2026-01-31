@@ -9,11 +9,14 @@ agent:
   base:
     path: /opt/web/agent
   llm:
+    folder: llm
     file: llm_conf.json
   session:
+    folder: session
     file: session.json
   memory:
+    folder: memory
     file: memory.json
   rag:
-    file: rag
+    folder: rag
 

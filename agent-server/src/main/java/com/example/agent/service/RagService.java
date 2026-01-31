@@ -9,6 +9,7 @@ import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -18,9 +19,14 @@ import java.util.stream.Collectors;
 @Service
 public class RagService {
 
+    @Value("agent.base.path")
+    private String basePath;
+
+    @Value("agent.rag.folder")
+    private String ragFolder;
+
     private final EmbeddingStore<TextSegment> embeddingStore;
     private final EmbeddingModel embeddingModel;
-    private static final String RAG_DIR = "src/main/resources/data/rag";
 
     public RagService(EmbeddingStore<TextSegment> embeddingStore, EmbeddingModel embeddingModel) {
         this.embeddingStore = embeddingStore;
@@ -43,9 +49,9 @@ public class RagService {
         // For simplicity in this dev task, let's just add new ones,
         // but ideally we'd want to clear it.
 
-        File dir = new File(RAG_DIR);
+        File dir = new File(basePath+"/"+ragFolder);
         if (dir.exists() && dir.isDirectory()) {
-            List<Document> documents = FileSystemDocumentLoader.loadDocuments(RAG_DIR, new ApacheTikaDocumentParser());
+            List<Document> documents = FileSystemDocumentLoader.loadDocuments(basePath+"/"+ragFolder, new ApacheTikaDocumentParser());
             for (Document doc : documents) {
                 ingestDocument(doc);
             }

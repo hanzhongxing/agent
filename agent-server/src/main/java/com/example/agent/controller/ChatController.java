@@ -29,6 +29,16 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/chat")
 @CrossOrigin(origins = "*")
 public class ChatController {
+    private final static Logger logger = LoggerFactory.getLogger(ChatController.class);
+
+    @Autowired
+    private RagService ragService;
+
+    @Autowired
+    private ModelConfigService modelConfigService;
+
+    @Autowired
+    private MemoryService memoryService;
 
     @GetMapping("/sessions")
     public List<ChatSession> getSessions() {
@@ -59,18 +69,6 @@ public class ChatController {
             return m;
         }).collect(Collectors.toList());
     }
-
-    // Keep existing chat method and other private methods...
-    private final static Logger logger = LoggerFactory.getLogger(ChatController.class);
-
-    @Autowired
-    private RagService ragService;
-
-    @Autowired
-    private ModelConfigService modelConfigService;
-
-    @Autowired
-    private MemoryService memoryService;
 
     @PostMapping(produces = "text/event-stream")
     public Flux<String> chat(@RequestBody Map<String, Object> request) {

@@ -1,6 +1,10 @@
 package com.example.agent.controller;
 
+import com.example.agent.config.AgentConfig;
 import com.example.agent.service.RagService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,23 +25,13 @@ import java.util.UUID;
 @RequestMapping("/api/rag")
 @CrossOrigin(origins = "*")
 public class RagFileController {
+    private final static Logger logger= LoggerFactory.getLogger(RagFileController.class);
 
-    @Value("agent.base.path")
-    private String basePath;
+    @Autowired
+    private RagService ragService;
 
-    @Value("agent.rag.folder")
-    private String ragFolder;
-
-    private final RagService ragService;
-
-    public RagFileController(RagService ragService) {
-        this.ragService = ragService;
-        // Ensure directory exists
-        File dir = new File(basePath+"/"+ragFolder);
-        if (!dir.exists()) {
-            dir.mkdirs();
-        }
-    }
+    @Autowired
+    private AgentConfig agentConfig;
 
     @PostMapping("/upload")
     public ResponseEntity<String> uploadFile(@RequestParam("file") MultipartFile file) {
@@ -45,11 +39,12 @@ public class RagFileController {
             return ResponseEntity.badRequest().body("File is empty");
         }
         try {
-            Path path = Paths.get(basePath+"/"+ragFolder, file.getOriginalFilename());
+            Path path = Paths.get(agentConfig.getRAGFilePath(), file.getOriginalFilename());
             file.transferTo(path);
             ragService.reindexAll(); // Simple reindex for now
             return ResponseEntity.ok("File uploaded successfully");
         } catch (IOException e) {
+            logger.error(e.getMessage(),e);
             return ResponseEntity.internalServerError().body("Failed to upload file: " + e.getMessage());
         }
     }
@@ -68,11 +63,12 @@ public class RagFileController {
             title += ".txt";
         }
         try {
-            Path path = Paths.get(basePath+"/"+ragFolder, title);
+            Path path = Paths.get(agentConfig.getRAGFilePath(), title);
             Files.write(path, content.getBytes(StandardCharsets.UTF_8));
             ragService.reindexAll();
             return ResponseEntity.ok("Text saved successfully as " + title);
         } catch (IOException e) {
+            logger.error(e.getMessage(),e);
             return ResponseEntity.internalServerError().body("Failed to save text: " + e.getMessage());
         }
     }
@@ -80,7 +76,7 @@ public class RagFileController {
     @GetMapping("/files")
     public List<Map<String, Object>> listFiles() {
         List<Map<String, Object>> files = new ArrayList<>();
-        File dir = new File(basePath+"/"+ragFolder);
+        File dir = new File(agentConfig.getRAGFilePath());
         if (dir.exists() && dir.isDirectory()) {
             File[] fileList = dir.listFiles();
             if (fileList != null) {
@@ -100,7 +96,7 @@ public class RagFileController {
     @DeleteMapping("/files/{filename}")
     public ResponseEntity<String> deleteFile(@PathVariable String filename) {
         try {
-            Path path = Paths.get(basePath+"/"+ragFolder, filename);
+            Path path = Paths.get(agentConfig.getRAGFilePath(), filename);
             if (Files.deleteIfExists(path)) {
                 ragService.reindexAll();
                 return ResponseEntity.ok("File deleted successfully");
@@ -108,6 +104,7 @@ public class RagFileController {
                 return ResponseEntity.notFound().build();
             }
         } catch (IOException e) {
+            logger.error(e.getMessage(),e);
             return ResponseEntity.internalServerError().body("Failed to delete file: " + e.getMessage());
         }
     }

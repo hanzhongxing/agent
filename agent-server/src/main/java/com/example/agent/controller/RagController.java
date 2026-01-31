@@ -2,6 +2,7 @@ package com.example.agent.controller;
 
 import com.example.agent.service.RagService;
 import dev.langchain4j.data.segment.TextSegment;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -13,11 +14,8 @@ import java.util.stream.Collectors;
 @CrossOrigin(origins = "*")
 public class RagController {
 
-    private final RagService ragService;
-
-    public RagController(RagService ragService) {
-        this.ragService = ragService;
-    }
+    @Autowired
+    private RagService ragService;
 
     @PostMapping("/ingest")
     public String ingest(@RequestBody Map<String, String> body) {

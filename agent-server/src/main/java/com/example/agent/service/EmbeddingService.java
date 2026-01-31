@@ -21,6 +21,7 @@ public class EmbeddingService {
         if(all==null||all.isEmpty()){
             return models;
         }
+        // text-embedding-3-small
         for(ModelConfig config:all) {
             models.add(OpenAiEmbeddingModel.builder()
                     .baseUrl(config.getBaseUrl())

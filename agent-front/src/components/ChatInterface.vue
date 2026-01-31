@@ -230,7 +230,7 @@
                 <p>Manage your AI backend configurations.</p>
               </div>
               <div class="table-container">
-                <el-table :data="modelOptions" style="width: 100%" height="100%" class="custom-table">
+                <el-table :data="allModel" style="width: 100%" height="100%" class="custom-table">
                   <el-table-column prop="name" label="Provider" min-width="120">
                     <template #default="scope">
                       <div class="model-info">
@@ -239,7 +239,8 @@
                     </template>
                   </el-table-column>
                   <el-table-column prop="modelName" label="Model ID" min-width="150" />
-                  <el-table-column label="Actions" width="160" align="center">
+                  <el-table-column prop="embed" label="EMBED" min-width="80" />
+                  <el-table-column label="Actions" width="80" align="center">
                     <template #default="scope">
                       <el-button-group>
                         <el-tooltip content="Edit" placement="top">

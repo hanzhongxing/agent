@@ -57,12 +57,7 @@ public class ModelConfigService {
     }
 
     private ModelConfig getEmbedModelConf(){
-        for(ModelConfig modelConfig:modelConfigs){
-            if(modelConfig.getEmbed()!=null&&modelConfig.getEmbed()){
-                return modelConfig;
-            }
-        }
-        return null;
+        return modelConfigs.stream().filter(e->e.getEmbed()!=null&&e.getEmbed()).toList().getFirst();
     }
 
     public ModelConfig getConfig(String id) {

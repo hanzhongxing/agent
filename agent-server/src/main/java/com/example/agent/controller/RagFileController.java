@@ -6,7 +6,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -35,17 +40,45 @@ public class RagFileController {
 
     @PostMapping("/upload")
     public ResponseEntity<String> uploadFile(@RequestParam("file") MultipartFile file) {
-        if (file.isEmpty()) {
+        if (file == null || file.isEmpty()) {
             return ResponseEntity.badRequest().body("File is empty");
         }
         try {
-            Path path = Paths.get(agentConfig.getRAGFilePath(), file.getOriginalFilename());
-            file.transferTo(path);
-            ragService.reindexAll(); // Simple reindex for now
-            return ResponseEntity.ok("File uploaded successfully");
+            // ensure directory exists
+            Path dir = Paths.get(agentConfig.getRAGFilePath());
+            Files.createDirectories(dir);
+
+            // sanitize filename (basic) and avoid overwrites
+            String original = file.getOriginalFilename();
+            String safeName = original == null ? "file_" + UUID.randomUUID() : original.replaceAll("[\\\\/:*?\"<>|]","_");
+            Path target = dir.resolve(safeName);
+            if (Files.exists(target)) {
+                String name = safeName;
+                String ext = "";
+                int idx = safeName.lastIndexOf('.');
+                if (idx > 0) {
+                    name = safeName.substring(0, idx);
+                    ext = safeName.substring(idx);
+                }
+                safeName = name + "_" + UUID.randomUUID().toString().substring(0,8) + ext;
+                target = dir.resolve(safeName);
+            }
+
+            file.transferTo(target);
+
+            // trigger reindex in background to avoid blocking upload
+            new Thread(() -> {
+                try {
+                    ragService.reindexAll();
+                } catch (Exception e) {
+                    logger.error("Reindex failed for uploaded file: {}", target, e);
+                }
+            }, "rag-reindex-thread").start();
+
+            return ResponseEntity.ok("File uploaded successfully: " + safeName);
         } catch (IOException e) {
-            logger.error(e.getMessage(),e);
-            return ResponseEntity.internalServerError().body("Failed to upload file: " + e.getMessage());
+            logger.error(e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to upload file: " + e.getMessage());
         }
     }
 
@@ -85,7 +118,8 @@ public class RagFileController {
                         files.add(Map.of(
                                 "name", f.getName(),
                                 "size", f.length(),
-                                "lastModified", f.lastModified()));
+                                "lastModified", f.lastModified(),
+                                "downloadUrl", "/api/rag/files/" + f.getName() + "/download"));
                     }
                 }
             }
@@ -106,6 +140,26 @@ public class RagFileController {
         } catch (IOException e) {
             logger.error(e.getMessage(),e);
             return ResponseEntity.internalServerError().body("Failed to delete file: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/files/{filename}/download")
+    public ResponseEntity<Resource> downloadFile(@PathVariable String filename) {
+        try {
+            Path path = Paths.get(agentConfig.getRAGFilePath(), filename);
+            if (!Files.exists(path) || !Files.isRegularFile(path)) {
+                return ResponseEntity.notFound().build();
+            }
+            Resource resource = new UrlResource(path.toUri());
+            String contentType = Files.probeContentType(path);
+            if (contentType == null) contentType = MediaType.APPLICATION_OCTET_STREAM_VALUE;
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(contentType))
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + path.getFileName().toString() + "\"")
+                    .body(resource);
+        } catch (Exception e) {
+            logger.error("downloadFile error", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 }

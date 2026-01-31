@@ -21,7 +21,7 @@ public class ModelConfigService {
 
     // We use the source file in resources directly for persistence in this
     // development environment.
-    private static final String CONFIG_FILE_PATH = "src/main/resources/llm_conf.json";
+    private static final String CONFIG_FILE_PATH = "src/main/resources/data/conf/llm_conf.json";
 
     @PostConstruct
     public void init() {

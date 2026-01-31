@@ -56,8 +56,24 @@ export const chatApi = {
         return fullContent;
     },
 
-    async ingestDocument(content) {
-        const response = await axios.post(`${API_URL}/rag/ingest`, { content });
+    async getRagFiles() {
+        const response = await axios.get(`${API_URL}/rag/files`);
+        return response.data;
+    },
+    async uploadRagFile(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await axios.post(`${API_URL}/rag/upload`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return response.data;
+    },
+    async uploadRagText(title, content) {
+        const response = await axios.post(`${API_URL}/rag/text`, { title, content });
+        return response.data;
+    },
+    async deleteRagFile(filename) {
+        const response = await axios.delete(`${API_URL}/rag/files/${filename}`);
         return response.data;
     },
 

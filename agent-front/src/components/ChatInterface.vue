@@ -156,23 +156,61 @@
     </div>
 
     <!-- Upload Dialog -->
-    <el-dialog v-model="showIngestDialog" title="Add Knowledge" width="450px" class="glass-dialog" center align-center>
-      <div class="dialog-content">
-        <p class="dialog-desc">Paste text below to add it to the agent's long-term memory.</p>
-        <el-input
-          type="textarea"
-          v-model="ingestContent"
-          :rows="8"
-          placeholder="Paste content here..."
-          class="custom-textarea"
-        />
+    <el-dialog v-model="showIngestDialog" title="Knowledge Base Management" width="600px" class="premium-dialog" center align-center>
+      <div class="rag-dialog-container">
+        <el-tabs v-model="activeRagTab" class="custom-tabs">
+          <!-- Upload Tab -->
+          <el-tab-pane label="Upload File" name="upload">
+            <div class="rag-tab-content upload-tab">
+               <div class="upload-zone" @click="$refs.fileInput.click()">
+                 <el-icon :size="48" color="#6366f1"><UploadFilled /></el-icon>
+                 <p>Click to select or drag and drop files</p>
+                 <span class="upload-hint">Supports PDF, DOC, EXCEL, HTML, TXT</span>
+                 <input type="file" ref="fileInput" style="display: none" @change="handleFileUpload" />
+               </div>
+               <div v-if="ingestLoading" class="upload-status">
+                  <el-icon class="is-loading"><Loading /></el-icon> <span>Processing...</span>
+               </div>
+            </div>
+          </el-tab-pane>
+
+          <!-- Text Tab -->
+          <el-tab-pane label="Paste Text" name="text">
+            <div class="rag-tab-content text-tab">
+              <el-input v-model="ingestTitle" placeholder="Document Title (optional)" class="margin-bottom" />
+              <el-input
+                type="textarea"
+                v-model="ingestContent"
+                :rows="10"
+                placeholder="Paste content here..."
+                class="custom-textarea"
+              />
+              <div class="tab-actions">
+                 <el-button type="primary" @click="handleTextIngest" :loading="ingestLoading" block>Add to Memory</el-button>
+              </div>
+            </div>
+          </el-tab-pane>
+
+          <!-- Management Tab -->
+          <el-tab-pane label="Manage Files" name="manage">
+            <div class="rag-tab-content manage-tab">
+              <el-table :data="ragFiles" v-loading="ragFilesLoading" height="300px" class="custom-table smaller">
+                <el-table-column prop="name" label="File Name" min-width="200" show-overflow-tooltip />
+                <el-table-column prop="size" label="Size" width="100">
+                  <template #default="scope">{{ formatSize(scope.row.size) }}</template>
+                </el-table-column>
+                <el-table-column label="Actions" width="80" align="center">
+                  <template #default="scope">
+                    <el-button circle size="small" type="danger" @click="deleteRagFile(scope.row.name)">
+                      <el-icon><Delete /></el-icon>
+                    </el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
+          </el-tab-pane>
+        </el-tabs>
       </div>
-      <template #footer>
-        <div class="dialog-actions">
-           <el-button @click="showIngestDialog = false">Cancel</el-button>
-           <el-button type="primary" @click="handleIngest" :loading="ingestLoading">Add to Memory</el-button>
-        </div>
-      </template>
     </el-dialog>
 
     <!-- Settings Dialog -->
@@ -276,7 +314,7 @@ import {
   Cpu, Fold, Expand, DocumentAdd, Delete, Setting, 
   ChatDotRound, Position, Search, Menu, Plus, Edit,
   Link, Key, PriceTag, EditPen, DeleteFilled,
-  ChatLineRound, Close
+  ChatLineRound, Close, UploadFilled, Loading
 } from '@element-plus/icons-vue';
 
 // State
@@ -296,7 +334,11 @@ const loading = ref(false);
 const showIngestDialog = ref(false);
 const showSettingsDialog = ref(false);
 const ingestContent = ref('');
+const ingestTitle = ref('');
 const ingestLoading = ref(false);
+const activeRagTab = ref('upload');
+const ragFiles = ref([]);
+const ragFilesLoading = ref(false);
 const chatHistory = ref(null);
 const isSidebarCollapsed = ref(false);
 
@@ -561,23 +603,76 @@ const sendMessage = async () => {
   }
 };
 
-const handleIngest = async () => {
+const loadRagFiles = async () => {
+  ragFilesLoading.value = true;
+  try {
+    ragFiles.value = await chatApi.getRagFiles();
+  } catch (error) {
+    console.error("Failed to load RAG files");
+  } finally {
+    ragFilesLoading.value = false;
+  }
+};
+
+const handleFileUpload = async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  ingestLoading.value = true;
+  try {
+    await chatApi.uploadRagFile(file);
+    ElMessage.success("File uploaded and indexed!");
+    await loadRagFiles();
+    activeRagTab.value = 'manage';
+  } catch (error) {
+    ElMessage.error("Failed to upload file");
+  } finally {
+    ingestLoading.value = false;
+    event.target.value = ''; // clear input
+  }
+};
+
+const handleTextIngest = async () => {
   if (!ingestContent.value.trim()) return;
   ingestLoading.value = true;
   try {
-    await chatApi.ingestDocument(ingestContent.value);
-    ElMessage.success({
-      message: 'Knowledge successfully ingested.',
-      type: 'success',
-      plain: true,
-    });
+    await chatApi.uploadRagText(ingestTitle.value, ingestContent.value);
+    ElMessage.success("Knowledge added!");
     ingestContent.value = '';
-    showIngestDialog.value = false;
+    ingestTitle.value = '';
+    await loadRagFiles();
+    activeRagTab.value = 'manage';
   } catch (error) {
-    ElMessage.error('Failed to upload knowledge.');
+    ElMessage.error("Failed to ingest text");
   } finally {
     ingestLoading.value = false;
   }
+};
+
+const deleteRagFile = async (filename) => {
+  try {
+    await chatApi.deleteRagFile(filename);
+    ElMessage.success("File deleted");
+    await loadRagFiles();
+  } catch (error) {
+    ElMessage.error("Failed to delete file");
+  }
+};
+
+// watch showIngestDialog to load files
+import { watch } from 'vue';
+watch(showIngestDialog, (val) => {
+  if (val) {
+    loadRagFiles();
+  }
+});
+
+const formatSize = (bytes) => {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 </script>
 
@@ -1103,5 +1198,74 @@ const handleIngest = async () => {
 
 .sidebar {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* RAG Dialog Styles */
+.rag-dialog-container {
+  padding: 10px 0;
+}
+
+.rag-tab-content {
+  padding-top: 20px;
+  min-height: 350px;
+}
+
+.upload-zone {
+  border: 2px dashed #e2e8f0;
+  border-radius: 16px;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #f8fafc;
+}
+
+.upload-zone:hover {
+  border-color: #6366f1;
+  background: #f1f5f9;
+}
+
+.upload-hint {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 10px;
+}
+
+.upload-status {
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #6366f1;
+  font-weight: 500;
+}
+
+.margin-bottom {
+  margin-bottom: 20px;
+}
+
+.tab-actions {
+  margin-top: 20px;
+}
+
+.custom-table.smaller {
+  font-size: 13px;
+}
+
+.custom-tabs :deep(.el-tabs__item) {
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.custom-tabs :deep(.el-tabs__item.is-active) {
+  color: #6366f1;
+}
+
+.custom-tabs :deep(.el-tabs__active-bar) {
+  background-color: #6366f1;
 }
 </style>

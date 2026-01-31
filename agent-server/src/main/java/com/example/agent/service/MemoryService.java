@@ -23,12 +23,14 @@ public class MemoryService {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ConcurrentHashMap<String, List<ChatMessage>> sessionMessages = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ChatSession> sessionMetadata = new ConcurrentHashMap<>();
-    private static final String MEMORY_FILE_PATH = "src/main/resources/memory.json";
+    private static final String SESSION_FILE_PATH = "src/main/resources/data/session/session.json";
+    private static final String MEMORY_FILE_PATH = "src/main/resources/data/memory/memory.json";
     private static final int MAX_MESSAGES = 50;
 
     @PostConstruct
     public void init() {
-        loadMemory();
+        loadSessions();
+        loadMessages();
     }
 
     public List<ChatMessage> getMessages(String sessionId) {
@@ -50,13 +52,13 @@ public class MemoryService {
                     .useRag(false)
                     .build());
         }
-        saveMemory();
+        saveAll();
     }
 
     public void clear(String sessionId) {
         sessionMessages.remove(sessionId);
-        sessionMetadata.remove(sessionId); // Also remove metadata when clearing
-        saveMemory();
+        sessionMetadata.remove(sessionId);
+        saveAll();
     }
 
     public List<ChatSession> getSessions() {
@@ -66,61 +68,49 @@ public class MemoryService {
     public void updateSession(ChatSession session) {
         if (session.getId() != null) {
             sessionMetadata.put(session.getId(), session);
-            saveMemory();
+            saveSessions();
         }
     }
 
     public void deleteSession(String sessionId) {
         sessionMessages.remove(sessionId);
         sessionMetadata.remove(sessionId);
-        saveMemory();
+        saveAll();
     }
 
-    private void loadMemory() {
+    private void loadSessions() {
+        File file = new File(SESSION_FILE_PATH);
+        if (file.exists()) {
+            try {
+                Map<String, ChatSession> loaded = objectMapper.readValue(file,
+                        new TypeReference<Map<String, ChatSession>>() {
+                        });
+                sessionMetadata.putAll(loaded);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void loadMessages() {
         File file = new File(MEMORY_FILE_PATH);
         if (file.exists()) {
             try {
-                Map<String, Object> root = objectMapper.readValue(file, new TypeReference<Map<String, Object>>() {
-                });
-
-                // Load Metadata
-                if (root.get("metadata") instanceof Map) {
-                    Map<String, Object> metaMap = (Map<String, Object>) root.get("metadata");
-                    for (Map.Entry<String, Object> entry : metaMap.entrySet()) {
-                        try {
-                            ChatSession session = objectMapper.convertValue(entry.getValue(), ChatSession.class);
-                            sessionMetadata.put(entry.getKey(), session);
-                        } catch (Exception e) {
-                            System.err.println(
-                                    "Failed to load metadata for session " + entry.getKey() + ": " + e.getMessage());
+                Map<String, List<Map<String, String>>> root = objectMapper.readValue(file,
+                        new TypeReference<Map<String, List<Map<String, String>>>>() {
+                        });
+                for (Map.Entry<String, List<Map<String, String>>> sessionEntry : root.entrySet()) {
+                    List<ChatMessage> messages = new CopyOnWriteArrayList<>();
+                    for (Map<String, String> entry : sessionEntry.getValue()) {
+                        String type = entry.get("type");
+                        String content = entry.get("content");
+                        if ("user".equals(type)) {
+                            messages.add(new UserMessage(content));
+                        } else if ("assistant".equals(type)) {
+                            messages.add(new AiMessage(content));
                         }
                     }
-                }
-
-                // Load Messages
-                if (root.get("messages") instanceof Map) {
-                    Map<String, Object> msgsMap = (Map<String, Object>) root.get("messages");
-                    for (Map.Entry<String, Object> sessionEntry : msgsMap.entrySet()) {
-                        try {
-                            List<Map<String, String>> msgList = objectMapper.convertValue(sessionEntry.getValue(),
-                                    new TypeReference<List<Map<String, String>>>() {
-                                    });
-                            List<ChatMessage> messages = new CopyOnWriteArrayList<>();
-                            for (Map<String, String> entry : msgList) {
-                                String type = entry.get("type");
-                                String content = entry.get("content");
-                                if ("user".equals(type)) {
-                                    messages.add(new UserMessage(content));
-                                } else if ("assistant".equals(type)) {
-                                    messages.add(new AiMessage(content));
-                                }
-                            }
-                            sessionMessages.put(sessionEntry.getKey(), messages);
-                        } catch (Exception e) {
-                            System.err.println("Failed to load messages for session " + sessionEntry.getKey() + ": "
-                                    + e.getMessage());
-                        }
-                    }
+                    sessionMessages.put(sessionEntry.getKey(), messages);
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -128,14 +118,21 @@ public class MemoryService {
         }
     }
 
-    private synchronized void saveMemory() {
+    private synchronized void saveAll() {
+        saveSessions();
+        saveMessages();
+    }
+
+    private synchronized void saveSessions() {
         try {
-            Map<String, Object> root = new java.util.HashMap<>();
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(new File(SESSION_FILE_PATH), sessionMetadata);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
-            // Save Metadata
-            root.put("metadata", sessionMetadata);
-
-            // Save Messages
+    private synchronized void saveMessages() {
+        try {
             Map<String, List<Map<String, String>>> msgsData = new java.util.HashMap<>();
             for (Map.Entry<String, List<ChatMessage>> sessionEntry : sessionMessages.entrySet()) {
                 List<Map<String, String>> sessionMsgs = new ArrayList<>();
@@ -152,9 +149,7 @@ public class MemoryService {
                 }
                 msgsData.put(sessionEntry.getKey(), sessionMsgs);
             }
-            root.put("messages", msgsData);
-
-            objectMapper.writerWithDefaultPrettyPrinter().writeValue(new File(MEMORY_FILE_PATH), root);
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(new File(MEMORY_FILE_PATH), msgsData);
         } catch (IOException e) {
             e.printStackTrace();
         }

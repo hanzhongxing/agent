@@ -2,7 +2,6 @@ package com.example.agent.service;
 
 import com.example.agent.config.AgentConfig;
 import com.example.agent.model.ChatSession;
-import com.example.agent.util.AgentFileUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.data.message.AiMessage;
@@ -12,7 +11,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.io.File;
 import java.io.IOException;
@@ -29,14 +28,16 @@ public class MemoryService {
     @Resource
     private AgentConfig agentConfig;
 
+    @Autowired
+    private SessionService sessionService;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ConcurrentHashMap<String, List<ChatMessage>> sessionMessages = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, ChatSession> sessionMetadata = new ConcurrentHashMap<>();
+
     private static final int MAX_MESSAGES = 50;
 
     @PostConstruct
     public void init() {
-        loadSessions();
         loadMessages();
     }
 
@@ -50,53 +51,21 @@ public class MemoryService {
         while (messages.size() > MAX_MESSAGES) {
             messages.remove(0);
         }
-        // If metadata doesn't exist, create default
-        if (!sessionMetadata.containsKey(sessionId)) {
-            sessionMetadata.put(sessionId, ChatSession.builder()
+        ChatSession session=sessionService.getSession(sessionId);
+        if (session==null) {
+            sessionService.addSession(ChatSession.builder()
                     .id(sessionId)
                     .title("Conversation " + sessionId)
                     .useMemory(true)
                     .useRag(false)
                     .build());
         }
-        saveAll();
+        saveMessages();
     }
 
-    public void clear(String sessionId) {
+    public void removeMessage(String sessionId){
         sessionMessages.remove(sessionId);
-        sessionMetadata.remove(sessionId);
-        saveAll();
-    }
-
-    public List<ChatSession> getSessions() {
-        return new ArrayList<>(sessionMetadata.values());
-    }
-
-    public void updateSession(ChatSession session) {
-        if (session.getId() != null) {
-            sessionMetadata.put(session.getId(), session);
-            saveSessions();
-        }
-    }
-
-    public void deleteSession(String sessionId) {
-        sessionMessages.remove(sessionId);
-        sessionMetadata.remove(sessionId);
-        saveAll();
-    }
-
-    private void loadSessions() {
-        File file = new File(agentConfig.getSessionFilePath());
-        if (file.exists()) {
-            try {
-                Map<String, ChatSession> loaded = objectMapper.readValue(file,
-                        new TypeReference<Map<String, ChatSession>>() {
-                        });
-                sessionMetadata.putAll(loaded);
-            } catch (IOException e) {
-                logger.error(e.getMessage(),e);
-            }
-        }
+        saveMessages();
     }
 
     private void loadMessages() {
@@ -122,19 +91,6 @@ public class MemoryService {
             } catch (IOException e) {
                 logger.error(e.getMessage(),e);
             }
-        }
-    }
-
-    private synchronized void saveAll() {
-        saveSessions();
-        saveMessages();
-    }
-
-    private synchronized void saveSessions() {
-        try {
-            objectMapper.writerWithDefaultPrettyPrinter().writeValue(new File(agentConfig.getSessionFilePath()), sessionMetadata);
-        } catch (IOException e) {
-            e.printStackTrace();
         }
     }
 

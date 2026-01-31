@@ -1,6 +1,5 @@
 package com.example.agent.controller;
 
-import com.example.agent.model.ChatSession;
 import com.example.agent.service.MemoryService;
 import com.example.agent.model.ModelConfig;
 import com.example.agent.service.ModelConfigService;
@@ -18,7 +17,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
-
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,40 +33,10 @@ public class ChatController {
     private RagService ragService;
 
     @Autowired
-    private ModelConfigService modelConfigService;
-
-    @Autowired
     private MemoryService memoryService;
 
-    @GetMapping("/sessions")
-    public List<ChatSession> getSessions() {
-        logger.info("Fetching all sessions");
-        return memoryService.getSessions();
-    }
-
-    @PostMapping("/sessions")
-    public void saveSession(@RequestBody ChatSession session) {
-        logger.info("Saving session: {}", session);
-        memoryService.updateSession(session);
-    }
-
-    @DeleteMapping("/sessions/{sessionId}")
-    public void deleteSession(@PathVariable String sessionId) {
-        logger.info("Deleting session: {}", sessionId);
-        memoryService.deleteSession(sessionId);
-    }
-
-    @GetMapping("/sessions/{sessionId}/messages")
-    public List<Map<String, String>> getMessages(@PathVariable String sessionId) {
-        return memoryService.getMessages(sessionId).stream().map(msg -> {
-            Map<String, String> m = new java.util.HashMap<>();
-            String role = (msg instanceof UserMessage) ? "user" : "assistant";
-            String content = (msg instanceof UserMessage) ? ((UserMessage) msg).singleText() : ((AiMessage) msg).text();
-            m.put("role", role);
-            m.put("content", content);
-            return m;
-        }).collect(Collectors.toList());
-    }
+    @Autowired
+    private ModelConfigService modelConfigService;
 
     @PostMapping(produces = "text/event-stream")
     public Flux<String> chat(@RequestBody Map<String, Object> request) {

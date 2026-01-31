@@ -27,13 +27,11 @@ public class RagService {
     @Autowired
     private AgentConfig agentConfig;
 
-    private final EmbeddingStore<TextSegment> embeddingStore;
-    private final EmbeddingModel embeddingModel;
+    @Autowired
+    private EmbeddingStore<TextSegment> embeddingStore;
 
-    public RagService(EmbeddingStore<TextSegment> embeddingStore, EmbeddingModel embeddingModel) {
-        this.embeddingStore = embeddingStore;
-        this.embeddingModel = embeddingModel;
-    }
+    @Autowired
+    private EmbeddingModel embeddingModel;
 
     @PostConstruct
     public void init() {

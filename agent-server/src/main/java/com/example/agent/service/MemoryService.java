@@ -7,6 +7,7 @@ import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.UserMessage;
 import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -20,11 +21,14 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @Service
 public class MemoryService {
 
+    @Value("agent.base_path")
+    private String basePath;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ConcurrentHashMap<String, List<ChatMessage>> sessionMessages = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ChatSession> sessionMetadata = new ConcurrentHashMap<>();
-    private static final String SESSION_FILE_PATH = "src/main/resources/data/session/session.json";
-    private static final String MEMORY_FILE_PATH = "src/main/resources/data/memory/memory.json";
+    private static final String SESSION_FILE_PATH = "session";
+    private static final String MEMORY_FILE_PATH = "memory";
     private static final int MAX_MESSAGES = 50;
 
     @PostConstruct
@@ -79,7 +83,7 @@ public class MemoryService {
     }
 
     private void loadSessions() {
-        File file = new File(SESSION_FILE_PATH);
+        File file = new File(basePath+SESSION_FILE_PATH);
         if (file.exists()) {
             try {
                 Map<String, ChatSession> loaded = objectMapper.readValue(file,
@@ -93,7 +97,7 @@ public class MemoryService {
     }
 
     private void loadMessages() {
-        File file = new File(MEMORY_FILE_PATH);
+        File file = new File(basePath+MEMORY_FILE_PATH);
         if (file.exists()) {
             try {
                 Map<String, List<Map<String, String>>> root = objectMapper.readValue(file,
@@ -125,7 +129,7 @@ public class MemoryService {
 
     private synchronized void saveSessions() {
         try {
-            objectMapper.writerWithDefaultPrettyPrinter().writeValue(new File(SESSION_FILE_PATH), sessionMetadata);
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(new File(basePath+SESSION_FILE_PATH), sessionMetadata);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -149,7 +153,7 @@ public class MemoryService {
                 }
                 msgsData.put(sessionEntry.getKey(), sessionMsgs);
             }
-            objectMapper.writerWithDefaultPrettyPrinter().writeValue(new File(MEMORY_FILE_PATH), msgsData);
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(new File(basePath+MEMORY_FILE_PATH), msgsData);
         } catch (IOException e) {
             e.printStackTrace();
         }

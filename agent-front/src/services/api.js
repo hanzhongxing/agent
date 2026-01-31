@@ -4,8 +4,11 @@ const API_URL = 'http://localhost:8001/api';
 
 export const chatApi = {
     // Chat & RAG
-    async sendMessage(message, useRag = false, useMemory = true, modelId = null, onChunk = null) {
+    async sendMessage(message, useRag = false, useMemory = true, modelId = null, sessionId = null, onChunk = null) {
         const payload = { message, useRag, useMemory };
+        if (sessionId) {
+            payload.sessionId = sessionId;
+        }
         if (modelId) {
             payload.modelId = modelId;
         }
@@ -60,6 +63,25 @@ export const chatApi = {
 
     async searchDocuments(query) {
         const response = await axios.get(`${API_URL}/rag/search`, { params: { query } });
+        return response.data;
+    },
+
+    // Session Management
+    async getSessions() {
+        const response = await axios.get(`${API_URL}/chat/sessions`);
+        return response.data;
+    },
+
+    async saveSession(session) {
+        await axios.post(`${API_URL}/chat/sessions`, session);
+    },
+
+    async deleteSession(sessionId) {
+        await axios.delete(`${API_URL}/chat/sessions/${sessionId}`);
+    },
+
+    async getSessionMessages(sessionId) {
+        const response = await axios.get(`${API_URL}/chat/sessions/${sessionId}/messages`);
         return response.data;
     },
 

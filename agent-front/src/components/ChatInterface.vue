@@ -14,31 +14,47 @@
         </div>
 
         <div class="sidebar-content" v-show="!isSidebarCollapsed">
-          <div class="section-title">OPTIONS</div>
+          <div class="session-actions">
+            <el-button class="sidebar-btn primary" @click="createNewSession">
+              <el-icon><Plus /></el-icon>
+              <span>New Chat</span>
+            </el-button>
+          </div>
+
+          <div class="section-title">CHATS</div>
+          <div class="sessions-list">
+            <div 
+              v-for="session in sessions" 
+              :key="session.id" 
+              :class="['session-item', { active: currentSessionId === session.id }]"
+              @click="switchSession(session.id)"
+            >
+              <el-icon><ChatLineRound /></el-icon>
+              <span class="session-title-text">{{ session.title || 'New Conversation' }}</span>
+              <el-icon class="delete-session" @click.stop="deleteSession(session.id)"><Close /></el-icon>
+            </div>
+          </div>
+
+          <div class="section-title" style="margin-top: 20px">OPTIONS</div>
           
           <div class="control-card">
             <div class="control-row">
               <span class="label">Knowledge Base (RAG)</span>
-              <el-switch v-model="useRag" size="small" active-color="#6366f1" />
+              <el-switch v-model="currentSession.useRag" size="small" active-color="#6366f1" @change="syncSession(currentSession)" />
             </div>
             <p class="description">Enable to use uploaded documents for improved context.</p>
             
             <div class="control-row" style="margin-top: 20px">
               <span class="label">Context Memory</span>
-              <el-switch v-model="useMemory" size="small" active-color="#6366f1" />
+              <el-switch v-model="currentSession.useMemory" size="small" active-color="#6366f1" @change="syncSession(currentSession)" />
             </div>
             <p class="description">Assistant remembers previous parts of the conversation.</p>
           </div>
 
           <div class="action-buttons">
-            <el-button class="sidebar-btn primary" @click="showIngestDialog = true">
+            <el-button class="sidebar-btn" @click="showIngestDialog = true">
               <el-icon><DocumentAdd /></el-icon>
               <span>Upload Documents</span>
-            </el-button>
-            <!-- Model Settings moved to top right icon -->
-            <el-button class="sidebar-btn" @click="clearHistory">
-              <el-icon><Delete /></el-icon>
-              <span>Clear History</span>
             </el-button>
           </div>
         </div>
@@ -71,7 +87,7 @@
         </div>
 
         <div class="messages-container" ref="chatHistory">
-          <div v-if="messages.length === 0" class="empty-state">
+          <div v-if="currentSession.messages.length === 0" class="empty-state">
              <div class="icon-wrapper">
                <el-icon :size="40" color="#6366f1"><ChatDotRound /></el-icon>
              </div>
@@ -84,9 +100,9 @@
              </div>
           </div>
 
-          <div v-for="(msg, index) in messages" :key="index" :class="['message-row', msg.role]">
+          <div v-for="(msg, index) in currentSession.messages" :key="index" :class="['message-row', msg.role]">
              <div class="avatar">
-               <el-avatar :size="36" :src="msg.role === 'user' ? 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png' : ''" :icon="msg.role === 'assistant' ? 'ElementPlus' : ''" :class="msg.role">
+               <el-avatar :size="36" :src="msg.role === 'user' ? 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png' : '/robot-avatar.png'" :icon="msg.role === 'assistant' ? 'ElementPlus' : ''" :class="msg.role">
                   <template #default v-if="msg.role === 'assistant'"><el-icon><Cpu /></el-icon></template>
                </el-avatar>
              </div>
@@ -99,7 +115,7 @@
           </div>
           
           <div v-if="loading" class="message-row assistant">
-             <div class="avatar"><el-avatar :size="36"><el-icon><Cpu /></el-icon></el-avatar></div>
+             <div class="avatar"><el-avatar :size="36" src="/robot-avatar.png"><el-icon><Cpu /></el-icon></el-avatar></div>
              <div class="typing-indicator">
                <span></span><span></span><span></span>
              </div>
@@ -259,21 +275,34 @@ import { ElMessage } from 'element-plus';
 import { 
   Cpu, Fold, Expand, DocumentAdd, Delete, Setting, 
   ChatDotRound, Position, Search, Menu, Plus, Edit,
-  Link, Key, PriceTag, EditPen, DeleteFilled
+  Link, Key, PriceTag, EditPen, DeleteFilled,
+  ChatLineRound, Close
 } from '@element-plus/icons-vue';
 
 // State
-const messages = ref([]);
+// State
+const sessions = ref([
+    {
+        id: 'default',
+        title: 'Default Conversation',
+        messages: [],
+        useMemory: true,
+        useRag: false
+    }
+]);
+const currentSessionId = ref('default');
 const inputMessage = ref('');
 const loading = ref(false);
-const useRag = ref(false);
-const useMemory = ref(true);
 const showIngestDialog = ref(false);
 const showSettingsDialog = ref(false);
 const ingestContent = ref('');
 const ingestLoading = ref(false);
 const chatHistory = ref(null);
 const isSidebarCollapsed = ref(false);
+
+const currentSession = computed(() => {
+    return sessions.value.find(s => s.id === currentSessionId.value) || sessions.value[0];
+});
 
 // Model Management State
 const selectedModel = ref('');
@@ -297,6 +326,7 @@ const isEditing = computed(() => !!newModel.value.id);
 // Lifecycle
 onMounted(async () => {
    await loadModels();
+   await loadSessions();
 });
 
 const loadModels = async () => {
@@ -309,6 +339,33 @@ const loadModels = async () => {
     } catch (e) {
       console.error("Failed to load models", e);
    }
+};
+
+const loadSessions = async () => {
+    try {
+        const backendSessions = await chatApi.getSessions();
+        if (backendSessions && backendSessions.length > 0) {
+            sessions.value = backendSessions.map(s => ({
+                ...s,
+                messages: []
+            }));
+            currentSessionId.value = sessions.value[0].id;
+            await loadCurrentSessionMessages(); // Load for first session
+        }
+    } catch (e) {
+        console.error("Failed to load sessions", e);
+    }
+};
+
+const loadCurrentSessionMessages = async () => {
+    if (!currentSessionId.value) return;
+    try {
+        const history = await chatApi.getSessionMessages(currentSessionId.value);
+        currentSession.value.messages = history;
+        scrollToBottom();
+    } catch (e) {
+        console.error("Failed to load session messages", e);
+    }
 };
 
 const saveNewModel = async () => {
@@ -366,13 +423,66 @@ const formatTime = (date) => {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
+const createNewSession = () => {
+    const newId = Date.now().toString();
+    const newSession = {
+        id: newId,
+        title: 'New Conversation',
+        messages: [],
+        useMemory: true,
+        useRag: false
+    };
+    sessions.value.push(newSession);
+    currentSessionId.value = newId;
+    // We can either save it now or after first message. Let's save it now to sync.
+    syncSession(newSession);
+};
+
+const syncSession = async (session) => {
+    try {
+        await chatApi.saveSession(session);
+    } catch (e) {
+        console.error("Failed to sync session to backend", e);
+    }
+};
+
+const switchSession = async (id) => {
+    currentSessionId.value = id;
+    if (currentSession.value.messages.length === 0) {
+        await loadCurrentSessionMessages();
+    }
+};
+
+const deleteSession = async (id) => {
+    if (sessions.value.length === 1) {
+        ElMessage.info("Cannot delete the last session");
+        return;
+    }
+    const index = sessions.value.findIndex(s => s.id === id);
+    if (index === -1) return;
+
+    sessions.value.splice(index, 1);
+    if (currentSessionId.value === id) {
+        currentSessionId.value = sessions.value[0].id;
+    }
+    
+    try {
+        await chatApi.deleteSession(id);
+        ElMessage.success("Session deleted");
+    } catch (e) {
+        console.error("Failed to delete session from backend", e);
+        ElMessage.error("Failed to delete session from backend");
+    }
+};
+
 // Actions
 const setInput = (text) => {
   inputMessage.value = text;
 };
 
 const clearHistory = () => {
-  messages.value = [];
+  currentSession.value.messages = [];
+  chatApi.clearMemory(currentSessionId.value).catch(console.error);
 };
 
 const scrollToBottom = async () => {
@@ -386,14 +496,22 @@ const sendMessage = async () => {
   if (!inputMessage.value.trim() || loading.value) return;
   
   const userMsg = inputMessage.value;
-  messages.value.push({ role: 'user', content: userMsg });
+  const session = currentSession.value;
+
+  // Update session title if it's new
+  if (session.messages.length === 0) {
+      session.title = userMsg.length > 20 ? userMsg.substring(0, 17) + '...' : userMsg;
+      syncSession(session); // Sync title update
+  }
+
+  session.messages.push({ role: 'user', content: userMsg });
   inputMessage.value = '';
   loading.value = true;
   await scrollToBottom();
 
   try {
     const assistantMsg = ref({ role: 'assistant', content: '' });
-    messages.value.push(assistantMsg.value);
+    let assistantMsgPushed = false;
 
     let charQueue = [];
     let isTyping = false;
@@ -405,7 +523,10 @@ const sendMessage = async () => {
       
       const interval = setInterval(() => {
         if (charQueue.length > 0) {
-          // Progressively hide loading once we start receiving content
+          if (!assistantMsgPushed) {
+            session.messages.push(assistantMsg.value);
+            assistantMsgPushed = true;
+          }
           loading.value = false; 
           assistantMsg.value.content += charQueue.shift();
           scrollToBottom();
@@ -413,21 +534,26 @@ const sendMessage = async () => {
           clearInterval(interval);
           isTyping = false;
         }
-      }, 20); // Adjust speed here (20ms per character)
+      }, 20);
     };
 
-    await chatApi.sendMessage(userMsg, useRag.value, useMemory.value, selectedModel.value, (token) => {
-      // Split token into characters and add to queue
-      charQueue.push(...token.split(''));
-      startTypewriter();
-    });
+    await chatApi.sendMessage(
+        userMsg, 
+        session.useRag, 
+        session.useMemory, 
+        selectedModel.value, 
+        session.id,
+        (token) => {
+            charQueue.push(...token.split(''));
+            startTypewriter();
+        }
+    );
 
     streamingFinished = true;
   } catch (error) {
     console.error(error);
-    messages.value.push({ role: 'assistant', content: 'Connection Error: Please ensure the backend is running.' });
+    session.messages.push({ role: 'assistant', content: 'Connection Error: Please ensure the backend is running.' });
   } finally {
-    // If no tokens were ever received, we still need to stop loading
     setTimeout(() => {
         loading.value = false;
         scrollToBottom();
@@ -588,6 +714,71 @@ const handleIngest = async () => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.session-actions {
+  margin-bottom: 20px;
+}
+
+.sessions-list {
+  max-height: 250px;
+  overflow-y: auto;
+  margin-bottom: 20px;
+  padding-right: 5px;
+}
+
+.sessions-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sessions-list::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 2px;
+}
+
+.session-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #9ca3af;
+  gap: 10px;
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+.session-item:hover {
+  background: #1f2937;
+  color: #fff;
+}
+
+.session-item.active {
+  background: #1f2937;
+  color: #6366f1;
+  font-weight: 500;
+}
+
+.session-title-text {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.delete-session {
+  opacity: 0;
+  transition: opacity 0.2s;
+  color: #9ca3af;
+}
+
+.session-item:hover .delete-session {
+  opacity: 1;
+}
+
+.delete-session:hover {
+  color: #ef4444;
 }
 
 .status-dot {

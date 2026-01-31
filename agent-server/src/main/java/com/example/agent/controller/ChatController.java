@@ -1,9 +1,10 @@
 package com.example.agent.controller;
 
+import com.example.agent.model.ChatSession;
+import com.example.agent.service.MemoryService;
 import com.example.agent.model.ModelConfig;
 import com.example.agent.service.ModelConfigService;
 import com.example.agent.service.RagService;
-import com.example.agent.service.MemoryService;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.UserMessage;
@@ -17,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
+
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,6 +29,39 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/chat")
 @CrossOrigin(origins = "*")
 public class ChatController {
+    // ... existed field and chat method ...
+
+    @GetMapping("/sessions")
+    public List<ChatSession> getSessions() {
+        logger.info("Fetching all sessions");
+        return memoryService.getSessions();
+    }
+
+    @PostMapping("/sessions")
+    public void saveSession(@RequestBody ChatSession session) {
+        logger.info("Saving session: {}", session);
+        memoryService.updateSession(session);
+    }
+
+    @DeleteMapping("/sessions/{sessionId}")
+    public void deleteSession(@PathVariable String sessionId) {
+        logger.info("Deleting session: {}", sessionId);
+        memoryService.deleteSession(sessionId);
+    }
+
+    @GetMapping("/sessions/{sessionId}/messages")
+    public List<Map<String, String>> getMessages(@PathVariable String sessionId) {
+        return memoryService.getMessages(sessionId).stream().map(msg -> {
+            Map<String, String> m = new java.util.HashMap<>();
+            String role = (msg instanceof UserMessage) ? "user" : "assistant";
+            String content = (msg instanceof UserMessage) ? ((UserMessage) msg).singleText() : ((AiMessage) msg).text();
+            m.put("role", role);
+            m.put("content", content);
+            return m;
+        }).collect(Collectors.toList());
+    }
+
+    // Keep existing chat method and other private methods...
     private final static Logger logger = LoggerFactory.getLogger(ChatController.class);
 
     @Autowired
@@ -44,6 +79,7 @@ public class ChatController {
         boolean useRag = Boolean.TRUE.equals(request.get("useRag"));
         boolean useMemory = Boolean.TRUE.equals(request.get("useMemory"));
         String modelId = (String) request.get("modelId");
+        String sessionId = (String) request.getOrDefault("sessionId", "default");
 
         if (modelId == null || modelId.isEmpty()) {
             return Flux.error(new IllegalArgumentException("Model ID is required."));
@@ -67,7 +103,7 @@ public class ChatController {
 
         final List<ChatMessage> chatMessages = new ArrayList<>();
         if (useMemory) {
-            chatMessages.addAll(memoryService.getMessages());
+            chatMessages.addAll(memoryService.getMessages(sessionId));
         }
         chatMessages.add(new UserMessage(prompt));
 
@@ -86,8 +122,8 @@ public class ChatController {
                     public void onComplete(Response<AiMessage> response) {
                         logger.info("onComplete response:{}", response);
                         if (useMemory) {
-                            memoryService.addMessage(new UserMessage(message));
-                            memoryService.addMessage(new AiMessage(fullResponse.toString()));
+                            memoryService.addMessage(sessionId, new UserMessage(message));
+                            memoryService.addMessage(sessionId, new AiMessage(fullResponse.toString()));
                         }
                         sink.complete();
                     }

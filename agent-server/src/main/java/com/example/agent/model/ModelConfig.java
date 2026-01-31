@@ -13,4 +13,5 @@ public class ModelConfig {
     private String baseUrl;
     private String apiKey;
     private String modelName;
+    private Boolean embed;
 }

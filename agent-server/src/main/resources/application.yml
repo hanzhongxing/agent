@@ -21,8 +21,5 @@ agent:
     file: memory.json
   rag:
     folder: rag
-  embedding:
-    folder: embed
-    file: embed.json
 
 

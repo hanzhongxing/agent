@@ -26,10 +26,10 @@ public class RagService extends BaseService{
     private AgentConfig agentConfig;
 
     @Autowired
-    private EmbeddingStore<TextSegment> embeddingStore;
+    private ModelConfigService modelConfigService;
 
     @Autowired
-    private EmbeddingModel embeddingModel;
+    private EmbeddingStore<TextSegment> embeddingStore;
 
     @PostConstruct
     public void init() {
@@ -52,6 +52,10 @@ public class RagService extends BaseService{
             public void run() {
                 TextSegment segment = TextSegment.from(document.text(), document.metadata());
                 try {
+                    EmbeddingModel embeddingModel=modelConfigService.getEmbeddingModel();
+                    if(embeddingModel==null){
+                        return;
+                    }
                     Embedding embedding = embeddingModel.embed(segment).content();
                     logger.debug("Adding embedding for document, model={}, segmentLength={}", embeddingModel, segment.text().length());
                     embeddingStore.add(embedding, segment);
@@ -68,6 +72,10 @@ public class RagService extends BaseService{
             public void run() {
                 TextSegment segment = TextSegment.from(content);
                 try {
+                    EmbeddingModel embeddingModel=modelConfigService.getEmbeddingModel();
+                    if(embeddingModel==null){
+                        return;
+                    }
                     Embedding embedding = embeddingModel.embed(segment).content();
                     logger.debug("Adding embedding for content, model={}, segmentLength={}", embeddingModel, segment.text().length());
                     embeddingStore.add(embedding, segment);
@@ -79,6 +87,10 @@ public class RagService extends BaseService{
     }
 
     public List<TextSegment> search(String query) {
+        EmbeddingModel embeddingModel=modelConfigService.getEmbeddingModel();
+        if(embeddingModel==null){
+            return null;
+        }
         Embedding queryEmbedding = embeddingModel.embed(query).content();
         List<EmbeddingMatch<TextSegment>> matches = embeddingStore.findRelevant(queryEmbedding, 5, 0.7);
         return matches.stream().map(EmbeddingMatch::embedded).collect(Collectors.toList());

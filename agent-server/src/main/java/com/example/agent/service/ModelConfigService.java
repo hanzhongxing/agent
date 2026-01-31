@@ -4,6 +4,8 @@ import com.example.agent.config.AgentConfig;
 import com.example.agent.model.ModelConfig;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.langchain4j.model.embedding.EmbeddingModel;
+import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;
@@ -11,10 +13,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
 
 @Service
 public class ModelConfigService {
@@ -29,13 +32,32 @@ public class ModelConfigService {
     @PostConstruct
     public void init() {
         loadConfigs();
-        if (modelConfigs.isEmpty()) {
-            throw new RuntimeException("no available llm in file:"+agentConfig.getLlmFilePath());
-        }
     }
 
     public List<ModelConfig> getAllConfigs() {
-        return new ArrayList<>(modelConfigs);
+       return modelConfigs.stream().filter(modelConfig -> modelConfig.getEmbed()==null||!modelConfig.getEmbed()).collect(Collectors.toList());
+    }
+
+    public EmbeddingModel getEmbeddingModel() {
+        ModelConfig modelConfig=getEmbedModelConf();
+        if(modelConfig==null){
+            return null;
+        }
+        return OpenAiEmbeddingModel.builder()
+                .baseUrl(modelConfig.getBaseUrl())
+                .apiKey(modelConfig.getApiKey())
+                .modelName(modelConfig.getModelName())
+                .timeout(Duration.ofSeconds(60))
+                .build();
+    }
+
+    private ModelConfig getEmbedModelConf(){
+        for(ModelConfig modelConfig:modelConfigs){
+            if(modelConfig.getEmbed()!=null&&modelConfig.getEmbed()){
+                return modelConfig;
+            }
+        }
+        return null;
     }
 
     public ModelConfig getConfig(String id) {

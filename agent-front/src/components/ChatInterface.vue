@@ -284,6 +284,10 @@
                 <el-form-item label="API Key">
                   <el-input v-model="newModel.apiKey" type="password" show-password placeholder="Enter your API key" prefix-icon="Key" />
                 </el-form-item>
+                <el-form-item>
+                  <span class="label" style="margin-right: 10px;">EMBED LLM</span>
+                  <el-switch v-model="newModel.embed" size="small" active-color="#6366f1" />
+                </el-form-item>
               </el-form>
               <div class="footer-actions">
                  <el-button @click="cancelEdit" size="large" plain>Cancel</el-button>
@@ -347,7 +351,8 @@ const newModel = ref({
   name: '',
   baseUrl: '',
   apiKey: '',
-  modelName: ''
+  modelName: '',
+  embed: false
 });
 
 // Computed

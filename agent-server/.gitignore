@@ -3,6 +3,7 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 llm_conf.json
+memory.json
 
 ### STS ###
 .apt_generated

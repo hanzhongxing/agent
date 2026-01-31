@@ -22,6 +22,12 @@
               <el-switch v-model="useRag" size="small" active-color="#6366f1" />
             </div>
             <p class="description">Enable to use uploaded documents for improved context.</p>
+            
+            <div class="control-row" style="margin-top: 20px">
+              <span class="label">Context Memory</span>
+              <el-switch v-model="useMemory" size="small" active-color="#6366f1" />
+            </div>
+            <p class="description">Assistant remembers previous parts of the conversation.</p>
           </div>
 
           <div class="action-buttons">
@@ -261,6 +267,7 @@ const messages = ref([]);
 const inputMessage = ref('');
 const loading = ref(false);
 const useRag = ref(false);
+const useMemory = ref(true);
 const showIngestDialog = ref(false);
 const showSettingsDialog = ref(false);
 const ingestContent = ref('');
@@ -409,7 +416,7 @@ const sendMessage = async () => {
       }, 20); // Adjust speed here (20ms per character)
     };
 
-    await chatApi.sendMessage(userMsg, useRag.value, selectedModel.value, (token) => {
+    await chatApi.sendMessage(userMsg, useRag.value, useMemory.value, selectedModel.value, (token) => {
       // Split token into characters and add to queue
       charQueue.push(...token.split(''));
       startTypewriter();

@@ -30,9 +30,9 @@ public class ModelConfigService {
             // Fallback default if file is empty or missing
             modelConfigs.add(new ModelConfig(
                     UUID.randomUUID().toString(),
-                    "Zhipu AI (GLM-4)",
+                    "ap",
                     "https://open.bigmodel.cn/api/paas/v4",
-                    "",
+                    "my_zp_api_key",
                     "GLM-4-Flash"));
             saveConfigs();
         }

@@ -3,7 +3,10 @@ package com.example.agent.controller;
 import com.example.agent.model.ModelConfig;
 import com.example.agent.service.ModelConfigService;
 import com.example.agent.service.RagService;
+import com.example.agent.service.MemoryService;
 import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.StreamingResponseHandler;
 import dev.langchain4j.model.chat.StreamingChatLanguageModel;
@@ -15,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -23,7 +27,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/chat")
 @CrossOrigin(origins = "*")
 public class ChatController {
-    private final static Logger logger= LoggerFactory.getLogger(ChatController.class);
+    private final static Logger logger = LoggerFactory.getLogger(ChatController.class);
 
     @Autowired
     private RagService ragService;
@@ -31,10 +35,14 @@ public class ChatController {
     @Autowired
     private ModelConfigService modelConfigService;
 
+    @Autowired
+    private MemoryService memoryService;
+
     @PostMapping(produces = "text/event-stream")
     public Flux<String> chat(@RequestBody Map<String, Object> request) {
         String message = (String) request.get("message");
         boolean useRag = Boolean.TRUE.equals(request.get("useRag"));
+        boolean useMemory = Boolean.TRUE.equals(request.get("useMemory"));
         String modelId = (String) request.get("modelId");
 
         if (modelId == null || modelId.isEmpty()) {
@@ -57,28 +65,47 @@ public class ChatController {
             }
         }
 
-        final String finalPrompt = prompt;
+        final List<ChatMessage> chatMessages = new ArrayList<>();
+        if (useMemory) {
+            chatMessages.addAll(memoryService.getMessages());
+        }
+        chatMessages.add(new UserMessage(prompt));
 
         return Flux.create(sink -> {
-            client.generate(finalPrompt, new StreamingResponseHandler<AiMessage>() {
-                @Override
-                public void onNext(String token) {
-                    logger.info("onNext token:{}",token);
-                    sink.next(token);
-                }
+            try {
+                StringBuilder fullResponse = new StringBuilder();
+                client.generate(chatMessages, new StreamingResponseHandler<AiMessage>() {
+                    @Override
+                    public void onNext(String token) {
+                        logger.info("onNext token:{}", token);
+                        fullResponse.append(token);
+                        sink.next(token);
+                    }
 
-                @Override
-                public void onComplete(Response<AiMessage> response) {
-                    logger.info("onComplete response:{}",response);
-                    sink.complete();
-                }
+                    @Override
+                    public void onComplete(Response<AiMessage> response) {
+                        logger.info("onComplete response:{}", response);
+                        if (useMemory) {
+                            memoryService.addMessage(new UserMessage(message));
+                            memoryService.addMessage(new AiMessage(fullResponse.toString()));
+                        }
+                        sink.complete();
+                    }
 
-                @Override
-                public void onError(Throwable error) {
-                    logger.error(error.getMessage(),error);
-                    sink.error(error);
-                }
-            });
+                    @Override
+                    public void onError(Throwable error) {
+                        logger.error(error.getMessage(), error);
+                        sink.error(error);
+                        sink.next(error.getMessage());
+                        sink.complete();
+                    }
+                });
+            } catch (Exception e) {
+                logger.error(e.getMessage(), e);
+                sink.error(e);
+                sink.next(e.getMessage());
+                sink.complete();
+            }
         });
     }
 

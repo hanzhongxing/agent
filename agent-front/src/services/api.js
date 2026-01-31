@@ -4,8 +4,8 @@ const API_URL = 'http://localhost:8001/api';
 
 export const chatApi = {
     // Chat & RAG
-    async sendMessage(message, useRag = false, modelId = null, onChunk = null) {
-        const payload = { message, useRag };
+    async sendMessage(message, useRag = false, useMemory = true, modelId = null, onChunk = null) {
+        const payload = { message, useRag, useMemory };
         if (modelId) {
             payload.modelId = modelId;
         }

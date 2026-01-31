@@ -1,15 +1,14 @@
 package com.example.agent.service;
 
+import com.example.agent.config.AgentConfig;
 import com.example.agent.model.ModelConfig;
-import com.example.agent.util.AgentFileUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
+import jakarta.annotation.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -21,14 +20,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class ModelConfigService {
     private final static Logger logger= LoggerFactory.getLogger(ModelConfigService.class);
 
-    @Value("agent.base.path")
-    private String basePath;
-
-    @Value("agent.llm.folder")
-    private String llmFolder;
-
-    @Value("agent.llm.file")
-    private String llmFile;
+    @Resource
+    private AgentConfig agentConfig;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final List<ModelConfig> modelConfigs = new CopyOnWriteArrayList<>();
@@ -84,7 +77,7 @@ public class ModelConfigService {
     }
 
     private void loadConfigs() {
-        File file = new File(AgentFileUtil.getFilePath(basePath,llmFolder,llmFile));
+        File file = new File(agentConfig.getLlmFilePath());
         if (file.exists()) {
             try {
                 List<ModelConfig> loaded = objectMapper.readValue(file, new TypeReference<List<ModelConfig>>() {
@@ -99,7 +92,7 @@ public class ModelConfigService {
 
     private synchronized void saveConfigs() {
         try {
-            objectMapper.writerWithDefaultPrettyPrinter().writeValue(new File(AgentFileUtil.getFilePath(basePath,llmFolder,llmFile)), modelConfigs);
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(new File(agentConfig.getLlmFilePath()), modelConfigs);
         } catch (IOException e) {
             logger.error(e.getMessage(),e);
         }

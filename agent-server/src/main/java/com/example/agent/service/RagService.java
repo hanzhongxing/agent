@@ -1,5 +1,6 @@
 package com.example.agent.service;
 
+import com.example.agent.config.AgentConfig;
 import dev.langchain4j.data.document.Document;
 import dev.langchain4j.data.document.loader.FileSystemDocumentLoader;
 import dev.langchain4j.data.document.parser.apache.tika.ApacheTikaDocumentParser;
@@ -9,6 +10,9 @@ import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -18,12 +22,10 @@ import java.util.stream.Collectors;
 
 @Service
 public class RagService {
+    private final static Logger logger= LoggerFactory.getLogger(RagService.class);
 
-    @Value("agent.base.path")
-    private String basePath;
-
-    @Value("agent.rag.folder")
-    private String ragFolder;
+    @Autowired
+    private AgentConfig agentConfig;
 
     private final EmbeddingStore<TextSegment> embeddingStore;
     private final EmbeddingModel embeddingModel;
@@ -39,9 +41,9 @@ public class RagService {
     }
 
     public synchronized void reindexAll() {
-        File dir = new File(basePath+"/"+ragFolder);
+        File dir = new File(agentConfig.getRAGFilePath());
         if (dir.exists() && dir.isDirectory()) {
-            List<Document> documents = FileSystemDocumentLoader.loadDocuments(basePath+"/"+ragFolder, new ApacheTikaDocumentParser());
+            List<Document> documents = FileSystemDocumentLoader.loadDocuments(agentConfig.getRAGFilePath(), new ApacheTikaDocumentParser());
             for (Document doc : documents) {
                 ingestDocument(doc);
             }

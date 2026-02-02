@@ -21,7 +21,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 @Service
-public class ModelConfigService {
+public class ModelConfigService extends BaseService{
     private final static Logger logger= LoggerFactory.getLogger(ModelConfigService.class);
 
     @Resource

@@ -17,7 +17,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
-public class SessionService {
+public class SessionService extends BaseService{
     private final static Logger logger= LoggerFactory.getLogger(SessionService.class);
 
     @Autowired

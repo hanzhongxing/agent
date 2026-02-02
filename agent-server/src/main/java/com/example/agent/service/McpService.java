@@ -10,16 +10,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
-
 import jakarta.annotation.PostConstruct;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.stream.Collectors;
 
 @Service
-public class McpService {
+public class McpService extends BaseService{
     private final static Logger logger = LoggerFactory.getLogger(McpService.class);
 
     @Autowired
@@ -33,8 +31,6 @@ public class McpService {
     public void init() {
         loadConfigs();
     }
-
-    // --- Config Management ---
 
     public List<McpConfig> getAllConfigs() {
         return new ArrayList<>(mcpConfigs);
@@ -123,28 +119,17 @@ public class McpService {
      * Executes a tool on the appropriate MCP server.
      */
     public String executeTool(String toolName, String arguments) {
-        // Naive strategy: Ask all enabled servers if they have this tool and execute.
-        // In a prod env, we should cache which server has which tool.
-
         for (McpConfig config : mcpConfigs) {
             if (config.isEnabled()) {
                 try {
-                    // Try to execute
-                    // Using a generic POST structure: { "name": toolName, "arguments": argumentsJson }
                     Map<String, Object> payload = new HashMap<>();
                     payload.put("name", toolName);
-                    // LangChain4j passes arguments as a JSON string, we might need to parse it
-                    // or pass it raw depending on the MCP server expectation.
-                    // Here we assume the MCP accepts the raw argument string or map.
                     try {
                         Map<String, Object> argsMap = objectMapper.readValue(arguments, new TypeReference<Map<String, Object>>() {});
                         payload.put("arguments", argsMap);
                     } catch (Exception e) {
                         payload.put("arguments", arguments);
                     }
-
-                    // This is a simplification. Real MCP might use SSE or JSON-RPC.
-                    // We stick to the pattern established in the existing McpClientService stub.
                     return restClient.post()
                             .uri(config.getBaseUrl() + "/tools/" + toolName)
                             .body(payload)
@@ -152,8 +137,7 @@ public class McpService {
                             .body(String.class);
 
                 } catch (Exception e) {
-                    // Continue to next server if this one fails (assuming 404 means tool not found)
-                    logger.debug("Tool {} execution failed on server {}", toolName, config.getName());
+                    logger.error("Tool {} execution failed on server {}", toolName, config.getName());
                 }
             }
         }

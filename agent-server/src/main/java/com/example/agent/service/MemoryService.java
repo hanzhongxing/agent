@@ -22,7 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 @Service
-public class MemoryService {
+public class MemoryService extends BaseService{
     private final static Logger logger= LoggerFactory.getLogger(MemoryService.class);
 
     @Resource

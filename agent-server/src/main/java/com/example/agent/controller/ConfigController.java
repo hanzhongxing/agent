@@ -2,6 +2,7 @@ package com.example.agent.controller;
 
 import com.example.agent.model.ModelConfig;
 import com.example.agent.service.ModelConfigService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -11,11 +12,8 @@ import java.util.List;
 @CrossOrigin(origins = "*")
 public class ConfigController {
 
-    private final ModelConfigService modelConfigService;
-
-    public ConfigController(ModelConfigService modelConfigService) {
-        this.modelConfigService = modelConfigService;
-    }
+    @Autowired
+    private ModelConfigService modelConfigService;
 
     @GetMapping
     public List<ModelConfig> getModels() {

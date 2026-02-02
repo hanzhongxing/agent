@@ -146,25 +146,19 @@
       <div class="dialog-layout">
         <div class="settings-sidebar">
           <div 
-            v-for="tab in ['model', 'rag']" 
+            v-for="tab in ['model','rag','mcp']" 
             :key="tab" 
-            :class="['settings-tab', { active: activeTab === tab || (tab === 'add' && isEditing) }]" 
+            :class="['settings-tab', { active: (activeTab === tab || activeTab === ('add'+tab)) }]" 
             @click="activeTab = tab"
           >
-            <el-icon v-if="tab === 'model'"><Menu /></el-icon>
+            <el-icon v-if="tab === 'model'"><Menu/></el-icon>
             <el-icon v-else-if="tab==='rag'"><DocumentAdd/></el-icon>
-            <span>{{ tab === 'model' ? 'Model List' : (isEditing ? 'Edit Model' : 'RAG Settings') }}</span>
-          </div>
-          
-          <!-- NEW MCP TAB -->
-          <div 
-            :class="['settings-tab', { active: activeTab === 'mcp' || (activeTab === 'addMcp' && isEditingMcp) }]" 
-            @click="activeTab = 'mcp'"
-          >
-            <el-icon><Connection /></el-icon>
-            <span>{{ activeTab === 'addMcp' ? 'Edit MCP' : 'MCP Servers' }}</span>
-          </div>
+            <el-icon v-else-if="tab==='mcp'"><Connection /></el-icon>
 
+            <span v-if="tab==='model'">Model</span>
+            <span v-else-if="tab==='rag'">RAG</span>
+            <span v-else-if="tab==='mcp'">MCP</span>
+          </div>
         </div>
 
         <div class="settings-main">
@@ -173,7 +167,7 @@
             <div v-if="activeTab === 'model'" key="model" class="settings-content">
               <div class="content-header">
                 <h3 style="display: inline-block">Installed Models</h3>
-                <el-button type="primary" size="mini" style="float: right;" @click="activeTab = 'add'" class="gradient-btn" >Add New Model</el-button>
+                <el-button type="primary" size="small" style="float: right;" @click="activeTab = 'addmodel'" class="gradient-btn" >Add New Model</el-button>
               </div>
               <div class="table-container">
                 <el-table :data="allModel" style="width: 100%" height="100%" class="custom-table">
@@ -203,7 +197,7 @@
             </div>
 
             <!-- ADD MODEL TAB -->
-            <div v-else-if="activeTab === 'add'" key="add" class="settings-content">
+            <div v-else-if="activeTab === 'addmodel'" key="addmodel" class="settings-content">
                <div class="content-header">
                 <h3>{{ isEditing ? 'Edit Configuration' : 'New Configuration' }}</h3>
                 <p>Configure access to your AI provider.</p>
@@ -300,7 +294,7 @@
                 <div class="content-header">
                 <h3 style="display: inline-block">MCP Servers</h3>
                 <p>Manage Model Context Protocol servers.</p>
-                <el-button type="primary" size="mini" style="float: right; margin-top: -30px" @click="startAddMcp" class="gradient-btn">Add Server</el-button>
+                <el-button type="primary" size="small" style="float: right; margin-top: -30px" @click="startAddMcp" class="gradient-btn">Add Server</el-button>
                 </div>
                 <div class="table-container">
                 <el-table :data="mcpConfigs" style="width: 100%" height="100%" class="custom-table">
@@ -328,7 +322,7 @@
             </div>
 
             <!-- MCP ADD/EDIT TAB -->
-            <div v-else-if="activeTab === 'addMcp'" key="addMcp" class="settings-content">
+            <div v-else-if="activeTab === 'addmcp'" key="addmcp" class="settings-content">
                 <div class="content-header">
                 <h3>{{ isEditingMcp ? 'Edit MCP Server' : 'New MCP Server' }}</h3>
                 <p>Configure an external MCP-compliant server endpoint.</p>
@@ -473,12 +467,12 @@ const loadMcps = async () => {
 
 const startAddMcp = () => {
     newMcp.value = { name: '', baseUrl: '', enabled: true };
-    activeTab.value = 'addMcp';
+    activeTab.value = 'addmcp';
 };
 
 const editMcp = (row) => {
     newMcp.value = { ...row };
-    activeTab.value = 'addMcp';
+    activeTab.value = 'addmcp';
 };
 
 const saveMcp = async () => {
@@ -559,7 +553,7 @@ const saveNewModel = async () => {
 
 const editModel = (row) => {
     newModel.value = { ...row }; // Deep copy
-    activeTab.value = 'add';
+    activeTab.value = 'addmodel';
 };
 
 const cancelEdit = () => {
@@ -1187,7 +1181,7 @@ const formatSize = (bytes) => {
 }
 
 .settings-sidebar {
-  width: 200px;
+  width: 150px;
   background: #fff;
   border-right: 1px solid #e2e8f0;
   padding: 20px 0;

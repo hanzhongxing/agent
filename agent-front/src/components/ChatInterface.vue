@@ -335,7 +335,7 @@ const currentSession = computed(() => {
 // Model Management State
 const selectedModel = ref('');
 const modelOptions = ref([]);
-const activeTab = ref('list');
+const activeTab = ref('model');
 const allModel=ref([]);
 const newModel = ref({
   name: '',
@@ -427,7 +427,7 @@ const saveNewModel = async () => {
       }
       await loadModels();
       resetForm();
-      activeTab.value = 'list';
+      activeTab.value = 'model';
    } catch(e) {
       ElMessage.error("Failed to save model");
    }
@@ -440,7 +440,7 @@ const editModel = (row) => {
 
 const cancelEdit = () => {
     resetForm();
-    activeTab.value = 'list';
+    activeTab.value = 'model';
 };
 
 const resetForm = () => {

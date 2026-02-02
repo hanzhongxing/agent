@@ -5,7 +5,7 @@ spring:
     allow-circular-references: true
 
 server:
-  port: 8001
+  port: 8070
 
 agent:
   base:

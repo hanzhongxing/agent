@@ -47,13 +47,6 @@
               <el-switch v-model="currentSession.useMemory" size="small" active-color="#6366f1" @change="syncSession(currentSession)" />
             </div>
           </div>
-
-          <div class="action-buttons">
-            <el-button class="sidebar-btn" @click="showIngestDialog = true">
-              <el-icon><DocumentAdd /></el-icon>
-              <span>Upload Documents</span>
-            </el-button>
-          </div>
         </div>
       </div>
 
@@ -148,86 +141,28 @@
       </div>
     </div>
 
-    <!-- Upload Dialog -->
-    <el-dialog v-model="showIngestDialog" title="Knowledge Base Management" width="600px" class="premium-dialog" center align-center>
-      <div class="rag-dialog-container">
-        <el-tabs v-model="activeRagTab" class="custom-tabs">
-          <!-- Upload Tab -->
-          <el-tab-pane label="Upload File" name="upload">
-            <div class="rag-tab-content upload-tab">
-               <div class="upload-zone" @click="$refs.fileInput.click()">
-                 <el-icon :size="48" color="#6366f1"><UploadFilled /></el-icon>
-                 <p>Click to select or drag and drop files</p>
-                 <span class="upload-hint">Supports PDF, DOC, EXCEL, HTML, TXT</span>
-                 <input type="file" ref="fileInput" style="display: none" @change="handleFileUpload" />
-               </div>
-               <div v-if="ingestLoading" class="upload-status">
-                  <el-icon class="is-loading"><Loading /></el-icon> <span>Processing...</span>
-               </div>
-            </div>
-          </el-tab-pane>
-
-          <!-- Text Tab -->
-          <el-tab-pane label="Paste Text" name="text">
-            <div class="rag-tab-content text-tab">
-              <el-input v-model="ingestTitle" placeholder="Document Title (optional)" class="margin-bottom" />
-              <el-input
-                type="textarea"
-                v-model="ingestContent"
-                :rows="10"
-                placeholder="Paste content here..."
-                class="custom-textarea"
-              />
-              <div class="tab-actions">
-                 <el-button type="primary" @click="handleTextIngest" :loading="ingestLoading" block>Add to Memory</el-button>
-              </div>
-            </div>
-          </el-tab-pane>
-
-          <!-- Management Tab -->
-          <el-tab-pane label="Manage Files" name="manage">
-            <div class="rag-tab-content manage-tab">
-              <el-table :data="ragFiles" v-loading="ragFilesLoading" height="300px" class="custom-table smaller">
-                <el-table-column prop="name" label="File Name" min-width="200" show-overflow-tooltip />
-                <el-table-column prop="size" label="Size" width="100">
-                  <template #default="scope">{{ formatSize(scope.row.size) }}</template>
-                </el-table-column>
-                <el-table-column label="Actions" width="80" align="center">
-                  <template #default="scope">
-                    <el-button circle size="small" type="danger" @click="deleteRagFile(scope.row.name)">
-                      <el-icon><Delete /></el-icon>
-                    </el-button>
-                  </template>
-                </el-table-column>
-              </el-table>
-            </div>
-          </el-tab-pane>
-        </el-tabs>
-      </div>
-    </el-dialog>
-
     <!-- Settings Dialog -->
     <el-dialog v-model="showSettingsDialog" title="Configuration" width="750px" class="premium-dialog" center align-center>
       <div class="dialog-layout">
         <div class="settings-sidebar">
           <div 
-            v-for="tab in ['list', 'add']" 
+            v-for="tab in ['model', 'rag']" 
             :key="tab" 
             :class="['settings-tab', { active: activeTab === tab || (tab === 'add' && isEditing) }]" 
             @click="activeTab = tab"
           >
-            <el-icon v-if="tab === 'list'"><Menu /></el-icon>
-            <el-icon v-else><Plus /></el-icon>
-            <span>{{ tab === 'list' ? 'Model List' : (isEditing ? 'Edit Model' : 'Add New') }}</span>
+            <el-icon v-if="tab === 'model'"><Menu /></el-icon>
+            <el-icon v-else-if="tab==='rag'"><DocumentAdd/></el-icon>
+            <span>{{ tab === 'model' ? 'Model List' : (isEditing ? 'Edit Model' : 'RAG Settings') }}</span>
           </div>
         </div>
 
         <div class="settings-main">
           <transition name="fade" mode="out-in">
-            <div v-if="activeTab === 'list'" key="list" class="settings-content">
+            <div v-if="activeTab === 'model'" key="model" class="settings-content">
               <div class="content-header">
-                <h3>Installed Models</h3>
-                <p>Manage your AI backend configurations.</p>
+                <h3 style="display: inline-block">Installed Models</h3>
+                <el-button type="primary" size="mini" style="float: right;" @click="activeTab = 'add'" class="gradient-btn" >Add New Model</el-button>
               </div>
               <div class="table-container">
                 <el-table :data="allModel" style="width: 100%" height="100%" class="custom-table">
@@ -253,9 +188,6 @@
                     </template>
                   </el-table-column>
                 </el-table>
-              </div>
-              <div class="footer-actions">
-                 <el-button type="primary" size="large" @click="activeTab = 'add'" class="gradient-btn" >Add New Model</el-button>
               </div>
             </div>
 
@@ -297,6 +229,63 @@
                  </el-button>
               </div>
             </div>
+
+            <div v-else-if="activeTab==='rag'" key="rag" class="settings-content">
+              <div class="rag-dialog-container">
+                <el-tabs v-model="activeRagTab" class="custom-tabs">
+
+                    <!-- Management Tab -->
+                  <el-tab-pane label="Manage Files" name="manage">
+                    <div class="rag-tab-content manage-tab">
+                      <el-table :data="ragFiles" v-loading="ragFilesLoading" height="300px" class="custom-table smaller">
+                        <el-table-column prop="name" label="File Name" min-width="200" show-overflow-tooltip />
+                        <el-table-column prop="size" label="Size" width="100">
+                          <template #default="scope">{{ formatSize(scope.row.size) }}</template>
+                        </el-table-column>
+                        <el-table-column label="Actions" width="80" align="center">
+                          <template #default="scope">
+                            <el-button circle size="small" type="danger" @click="deleteRagFile(scope.row.name)">
+                              <el-icon><Delete /></el-icon>
+                            </el-button>
+                          </template>
+                        </el-table-column>
+                      </el-table>
+                    </div>
+                  </el-tab-pane>
+                  <!-- Upload Tab -->
+                  <el-tab-pane label="Upload File" name="upload">
+                    <div class="rag-tab-content upload-tab">
+                      <div class="upload-zone" @click="$refs.fileInput.click()">
+                        <el-icon :size="48" color="#6366f1"><UploadFilled /></el-icon>
+                        <p>Click to select or drag and drop files</p>
+                        <span class="upload-hint">Supports PDF, DOC, EXCEL, HTML, TXT</span>
+                        <input type="file" ref="fileInput" style="display: none" @change="handleFileUpload" />
+                      </div>
+                      <div v-if="ingestLoading" class="upload-status">
+                          <el-icon class="is-loading"><Loading /></el-icon> <span>Processing...</span>
+                      </div>
+                    </div>
+                  </el-tab-pane>
+
+                  <!-- Text Tab -->
+                  <el-tab-pane label="Paste Text" name="text">
+                    <div class="rag-tab-content text-tab">
+                      <el-input v-model="ingestTitle" placeholder="Document Title (optional)" class="margin-bottom" />
+                      <el-input
+                        type="textarea"
+                        v-model="ingestContent"
+                        :rows="10"
+                        placeholder="Paste content here..."
+                        class="custom-textarea"
+                      />
+                      <div class="tab-actions">
+                        <el-button type="primary" @click="handleTextIngest" :loading="ingestLoading" block>Add to Memory</el-button>
+                      </div>
+                    </div>
+                  </el-tab-pane>
+                </el-tabs>
+              </div>
+            </div>
           </transition>
         </div>
       </div>
@@ -329,12 +318,11 @@ const sessions = ref([
 const currentSessionId = ref('default');
 const inputMessage = ref('');
 const loading = ref(false);
-const showIngestDialog = ref(false);
 const showSettingsDialog = ref(false);
 const ingestContent = ref('');
 const ingestTitle = ref('');
 const ingestLoading = ref(false);
-const activeRagTab = ref('upload');
+const activeRagTab = ref('manage');
 const ragFiles = ref([]);
 const ragFilesLoading = ref(false);
 const chatHistory = ref(null);
@@ -673,10 +661,16 @@ const deleteRagFile = async (filename) => {
   }
 };
 
-// watch showIngestDialog to load files
+
 import { watch } from 'vue';
-watch(showIngestDialog, (val) => {
-  if (val) {
+watch(activeRagTab, (val) => {
+  if (val==='manage') {
+    loadRagFiles();
+  }
+});
+
+watch(activeTab, (val) => {
+  if (val==='rag') {
     loadRagFiles();
   }
 });

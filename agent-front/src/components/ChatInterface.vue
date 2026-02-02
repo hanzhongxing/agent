@@ -460,8 +460,8 @@ const loadModels = async () => {
 // MCP Functions
 const loadMcps = async () => {
   try {
-     const res = await axios.get('http://localhost:8001/api/mcp');
-     mcpConfigs.value = res.data;
+     const res = await chatApi.getMcpServers();
+     mcpConfigs.value = res;
   } catch(e) { console.error("Failed to load MCPs", e); }
 };
 
@@ -482,10 +482,10 @@ const saveMcp = async () => {
     }
     try {
         if (newMcp.value.id) {
-            await axios.put(`http://localhost:8001/api/mcp/${newMcp.value.id}`, newMcp.value);
+            await chatApi.updateMcpServer(newMcp.value.id,newMcp.value);
             ElMessage.success("MCP updated");
         } else {
-            await axios.post('http://localhost:8001/api/mcp', newMcp.value);
+            await chatApi.addMcpServer(newMcp.value);
             ElMessage.success("MCP registered");
         }
         await loadMcps();
@@ -497,10 +497,10 @@ const saveMcp = async () => {
 
 const deleteMcp = async (id) => {
     try {
-        await axios.delete(`http://localhost:8001/api/mcp/${id}`);
+        await chatApi.deleteMcpServer(id);
         ElMessage.success("MCP deleted");
         await loadMcps();
-    } catch(e) { ElMessage.error("Failed to delete"); }
+    } catch(e) { ElMessage.error("Failed to delete MCP"); }
 }
 
 const loadSessions = async () => {

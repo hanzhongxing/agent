@@ -124,5 +124,24 @@ export const chatApi = {
 
     async deleteModel(id) {
         await axios.delete(`${API_URL}/models/${id}`);
+    },
+
+    async getMcpServers() {
+        const response = await axios.get(`${API_URL}/mcp`);
+        return response.data;
+    },
+
+    async addMcpServer(config) {
+        const response = await axios.post(`${API_URL}/mcp`, config);
+        return response.data;
+    },
+
+    async updateMcpServer(id, config) {
+        const response = await axios.put(`${API_URL}/mcp/${id}`, config);
+        return response.data;
+    },
+
+    async deleteMcpServer(id) {
+        await axios.delete(`${API_URL}/mcp/${id}`);
     }
 };

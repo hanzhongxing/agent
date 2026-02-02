@@ -80,17 +80,18 @@ public class McpService {
     private synchronized void saveConfigs() {
         try {
             File file = new File(agentConfig.getMcpFilePath());
-            // Ensure parent directory exists
             if (file.getParentFile() != null) {
-                file.getParentFile().mkdirs();
+                boolean flg=file.getParentFile().mkdirs();
+                if(!flg){
+                    logger.error("Failed to save MCP configs file getParentFile is null");
+                    return;
+                }
             }
             objectMapper.writerWithDefaultPrettyPrinter().writeValue(file, mcpConfigs);
         } catch (IOException e) {
             logger.error("Failed to save MCP configs", e);
         }
     }
-
-    // --- Runtime Tool Logic ---
 
     /**
      * Fetches all tool specifications from all enabled MCP servers.
@@ -100,20 +101,18 @@ public class McpService {
         for (McpConfig config : mcpConfigs) {
             if (config.isEnabled()) {
                 try {
-                    // Expecting MCP server to return List<ToolSpecification> JSON
-                    // Schema adaptation might be needed depending on actual MCP server implementation
                     String toolsJson = restClient.get()
                             .uri(config.getBaseUrl() + "/tools")
                             .retrieve()
                             .body(String.class);
-                    
+
                     if (toolsJson != null) {
                         List<ToolSpecification> serverTools = objectMapper.readValue(
                                 toolsJson, new TypeReference<List<ToolSpecification>>() {});
                         specs.addAll(serverTools);
                     }
                 } catch (Exception e) {
-                    logger.error("Failed to fetch tools from MCP: " + config.getName(), e);
+                    logger.error("Failed to rest fetch tools from MCP: " + config.getName(), e);
                 }
             }
         }
@@ -126,7 +125,7 @@ public class McpService {
     public String executeTool(String toolName, String arguments) {
         // Naive strategy: Ask all enabled servers if they have this tool and execute.
         // In a prod env, we should cache which server has which tool.
-        
+
         for (McpConfig config : mcpConfigs) {
             if (config.isEnabled()) {
                 try {
@@ -134,14 +133,14 @@ public class McpService {
                     // Using a generic POST structure: { "name": toolName, "arguments": argumentsJson }
                     Map<String, Object> payload = new HashMap<>();
                     payload.put("name", toolName);
-                    // LangChain4j passes arguments as a JSON string, we might need to parse it 
+                    // LangChain4j passes arguments as a JSON string, we might need to parse it
                     // or pass it raw depending on the MCP server expectation.
                     // Here we assume the MCP accepts the raw argument string or map.
                     try {
                         Map<String, Object> argsMap = objectMapper.readValue(arguments, new TypeReference<Map<String, Object>>() {});
                         payload.put("arguments", argsMap);
                     } catch (Exception e) {
-                        payload.put("arguments", arguments); 
+                        payload.put("arguments", arguments);
                     }
 
                     // This is a simplification. Real MCP might use SSE or JSON-RPC.

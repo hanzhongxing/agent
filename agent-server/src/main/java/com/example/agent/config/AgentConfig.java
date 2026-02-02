@@ -31,6 +31,12 @@ public class AgentConfig {
     @Value("${agent.rag.folder}")
     private String ragFolder;
 
+    @Value("${agent.mcp.folder}")
+    private String mcpFolder;
+
+    @Value("${agent.mcp.file}")
+    private String mcpFile;
+
     public String getLlmFilePath() {
         return AgentFileUtil.getFilePath(basePath, llmFolder, llmFile);
     }
@@ -47,4 +53,7 @@ public class AgentConfig {
         return AgentFileUtil.getFilePath(basePath, ragFolder);
     }
 
+    public String getMcpFilePath() {
+        return AgentFileUtil.getFilePath(basePath, mcpFolder, mcpFile);
+    }
 }

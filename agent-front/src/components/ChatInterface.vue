@@ -142,7 +142,7 @@
     </div>
 
     <!-- Settings Dialog -->
-    <el-dialog v-model="showSettingsDialog" title="Configuration" width="750px" class="premium-dialog" center align-center>
+    <el-dialog v-model="showSettingsDialog" title="Configuration" width="800px" class="premium-dialog" center align-center>
       <div class="dialog-layout">
         <div class="settings-sidebar">
           <div 
@@ -155,10 +155,21 @@
             <el-icon v-else-if="tab==='rag'"><DocumentAdd/></el-icon>
             <span>{{ tab === 'model' ? 'Model List' : (isEditing ? 'Edit Model' : 'RAG Settings') }}</span>
           </div>
+          
+          <!-- NEW MCP TAB -->
+          <div 
+            :class="['settings-tab', { active: activeTab === 'mcp' || (activeTab === 'addMcp' && isEditingMcp) }]" 
+            @click="activeTab = 'mcp'"
+          >
+            <el-icon><Connection /></el-icon>
+            <span>{{ activeTab === 'addMcp' ? 'Edit MCP' : 'MCP Servers' }}</span>
+          </div>
+
         </div>
 
         <div class="settings-main">
           <transition name="fade" mode="out-in">
+            <!-- MODEL TAB -->
             <div v-if="activeTab === 'model'" key="model" class="settings-content">
               <div class="content-header">
                 <h3 style="display: inline-block">Installed Models</h3>
@@ -191,6 +202,7 @@
               </div>
             </div>
 
+            <!-- ADD MODEL TAB -->
             <div v-else-if="activeTab === 'add'" key="add" class="settings-content">
                <div class="content-header">
                 <h3>{{ isEditing ? 'Edit Configuration' : 'New Configuration' }}</h3>
@@ -230,11 +242,10 @@
               </div>
             </div>
 
+            <!-- RAG TAB -->
             <div v-else-if="activeTab==='rag'" key="rag" class="settings-content">
               <div class="rag-dialog-container">
                 <el-tabs v-model="activeRagTab" class="custom-tabs">
-
-                    <!-- Management Tab -->
                   <el-tab-pane label="Manage Files" name="manage">
                     <div class="rag-tab-content manage-tab">
                       <el-table :data="ragFiles" v-loading="ragFilesLoading" height="300px" class="custom-table smaller">
@@ -252,7 +263,6 @@
                       </el-table>
                     </div>
                   </el-tab-pane>
-                  <!-- Upload Tab -->
                   <el-tab-pane label="Upload File" name="upload">
                     <div class="rag-tab-content upload-tab">
                       <div class="upload-zone" @click="$refs.fileInput.click()">
@@ -266,8 +276,6 @@
                       </div>
                     </div>
                   </el-tab-pane>
-
-                  <!-- Text Tab -->
                   <el-tab-pane label="Paste Text" name="text">
                     <div class="rag-tab-content text-tab">
                       <el-input v-model="ingestTitle" placeholder="Document Title (optional)" class="margin-bottom" />
@@ -286,6 +294,69 @@
                 </el-tabs>
               </div>
             </div>
+
+            <!-- MCP LIST TAB -->
+            <div v-else-if="activeTab === 'mcp'" key="mcp" class="settings-content">
+                <div class="content-header">
+                <h3 style="display: inline-block">MCP Servers</h3>
+                <p>Manage Model Context Protocol servers.</p>
+                <el-button type="primary" size="mini" style="float: right; margin-top: -30px" @click="startAddMcp" class="gradient-btn">Add Server</el-button>
+                </div>
+                <div class="table-container">
+                <el-table :data="mcpConfigs" style="width: 100%" height="100%" class="custom-table">
+                    <el-table-column prop="name" label="Name" min-width="120" />
+                    <el-table-column prop="baseUrl" label="Endpoint URL" min-width="200" />
+                    <el-table-column label="Status" width="100">
+                    <template #default="scope">
+                        <el-tag :type="scope.row.enabled ? 'success' : 'info'" size="small">{{ scope.row.enabled ? 'Active' : 'Disabled' }}</el-tag>
+                    </template>
+                    </el-table-column>
+                    <el-table-column label="Actions" width="100" align="center">
+                    <template #default="scope">
+                        <el-button-group>
+                        <el-tooltip content="Edit" placement="top">
+                            <el-button circle size="small" type="primary" @click="editMcp(scope.row)"><el-icon><EditPen /></el-icon></el-button>
+                        </el-tooltip>
+                        <el-tooltip content="Delete" placement="top">
+                            <el-button circle size="small" type="danger" @click="deleteMcp(scope.row.id)"><el-icon><DeleteFilled /></el-icon></el-button>
+                        </el-tooltip>
+                        </el-button-group>
+                    </template>
+                    </el-table-column>
+                </el-table>
+                </div>
+            </div>
+
+            <!-- MCP ADD/EDIT TAB -->
+            <div v-else-if="activeTab === 'addMcp'" key="addMcp" class="settings-content">
+                <div class="content-header">
+                <h3>{{ isEditingMcp ? 'Edit MCP Server' : 'New MCP Server' }}</h3>
+                <p>Configure an external MCP-compliant server endpoint.</p>
+                </div>
+                <el-form label-position="top" class="premium-form">
+                <el-form-item label="Server Name">
+                    <el-input v-model="newMcp.name" placeholder="e.g. Google Search Tools" prefix-icon="Monitor" />
+                </el-form-item>
+                
+                <el-form-item label="Base URL">
+                    <el-input v-model="newMcp.baseUrl" placeholder="http://localhost:3000" prefix-icon="Link" />
+                    <div style="font-size: 11px; color: #9ca3af; margin-top: 5px">
+                    The server must expose GET /tools and POST /tools/{name}.
+                    </div>
+                </el-form-item>
+
+                <el-form-item>
+                    <span class="label" style="margin-right: 10px;">Enabled</span>
+                    <el-switch v-model="newMcp.enabled" size="small" active-color="#10b981" />
+                </el-form-item>
+                </el-form>
+                <div class="footer-actions">
+                    <el-button @click="activeTab = 'mcp'" size="large" plain>Cancel</el-button>
+                    <el-button type="primary" @click="saveMcp" size="large" class="gradient-btn">
+                    {{ isEditingMcp ? 'Update Server' : 'Register Server' }}
+                    </el-button>
+                </div>
+            </div>
           </transition>
         </div>
       </div>
@@ -294,17 +365,18 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted, computed } from 'vue';
+import { ref, nextTick, onMounted, computed, watch } from 'vue';
 import { chatApi } from '../services/api';
+import axios from 'axios'; // Ensure axios is imported if not used via chatApi wrapper
 import { ElMessage } from 'element-plus';
 import { 
   Cpu, Fold, Expand, DocumentAdd, Delete, Setting, 
   ChatDotRound, Position, Search, Menu, Plus, Edit,
   Link, Key, PriceTag, EditPen, DeleteFilled,
-  ChatLineRound, Close, UploadFilled, Loading
+  ChatLineRound, Close, UploadFilled, Loading,
+  Connection, Monitor
 } from '@element-plus/icons-vue';
 
-// State
 // State
 const sessions = ref([
     {
@@ -345,9 +417,15 @@ const newModel = ref({
   embed: false
 });
 
+// MCP Management State
+const mcpConfigs = ref([]);
+const newMcp = ref({ name: '', baseUrl: '', enabled: true });
+const isEditingMcp = computed(() => !!newMcp.value.id);
+
 const openSetting = () => {
    showSettingsDialog.value = true;
    loadModels();
+   loadMcps();
 };
 
 // Computed
@@ -384,6 +462,52 @@ const loadModels = async () => {
       console.error("Failed to load models", e);
    }
 };
+
+// MCP Functions
+const loadMcps = async () => {
+  try {
+     const res = await axios.get('http://localhost:8001/api/mcp');
+     mcpConfigs.value = res.data;
+  } catch(e) { console.error("Failed to load MCPs", e); }
+};
+
+const startAddMcp = () => {
+    newMcp.value = { name: '', baseUrl: '', enabled: true };
+    activeTab.value = 'addMcp';
+};
+
+const editMcp = (row) => {
+    newMcp.value = { ...row };
+    activeTab.value = 'addMcp';
+};
+
+const saveMcp = async () => {
+    if(!newMcp.value.name || !newMcp.value.baseUrl) {
+        ElMessage.warning("Name and URL are required");
+        return;
+    }
+    try {
+        if (newMcp.value.id) {
+            await axios.put(`http://localhost:8001/api/mcp/${newMcp.value.id}`, newMcp.value);
+            ElMessage.success("MCP updated");
+        } else {
+            await axios.post('http://localhost:8001/api/mcp', newMcp.value);
+            ElMessage.success("MCP registered");
+        }
+        await loadMcps();
+        activeTab.value = 'mcp';
+    } catch(e) {
+        ElMessage.error("Failed to save MCP");
+    }
+};
+
+const deleteMcp = async (id) => {
+    try {
+        await axios.delete(`http://localhost:8001/api/mcp/${id}`);
+        ElMessage.success("MCP deleted");
+        await loadMcps();
+    } catch(e) { ElMessage.error("Failed to delete"); }
+}
 
 const loadSessions = async () => {
     try {
@@ -460,8 +584,6 @@ const deleteModel = async (id) => {
    }
 };
 
-
-
 // Formatting
 const formatTime = (date) => {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -478,7 +600,6 @@ const createNewSession = () => {
     };
     sessions.value.push(newSession);
     currentSessionId.value = newId;
-    // We can either save it now or after first message. Let's save it now to sync.
     syncSession(newSession);
 };
 
@@ -515,18 +636,12 @@ const deleteSession = async (id) => {
         ElMessage.success("Session deleted");
     } catch (e) {
         console.error("Failed to delete session from backend", e);
-        ElMessage.error("Failed to delete session from backend");
     }
 };
 
 // Actions
 const setInput = (text) => {
   inputMessage.value = text;
-};
-
-const clearHistory = () => {
-  currentSession.value.messages = [];
-  chatApi.clearMemory(currentSessionId.value).catch(console.error);
 };
 
 const scrollToBottom = async () => {
@@ -542,10 +657,9 @@ const sendMessage = async () => {
   const userMsg = inputMessage.value;
   const session = currentSession.value;
 
-  // Update session title if it's new
   if (session.messages.length === 0) {
       session.title = userMsg.length > 20 ? userMsg.substring(0, 17) + '...' : userMsg;
-      syncSession(session); // Sync title update
+      syncSession(session);
   }
 
   session.messages.push({ role: 'user', content: userMsg });
@@ -574,7 +688,7 @@ const sendMessage = async () => {
           loading.value = false; 
           assistantMsg.value.content += charQueue.shift();
           scrollToBottom();
-        } else if (streamingFinished) {
+        } else if (streamingFinished && charQueue.length === 0) {
           clearInterval(interval);
           isTyping = false;
         }
@@ -598,10 +712,11 @@ const sendMessage = async () => {
     console.error(error);
     session.messages.push({ role: 'assistant', content: 'Connection Error: Please ensure the backend is running.' });
   } finally {
-    setTimeout(() => {
+    // Keep loading true slightly longer if typing is happening
+    if(!isTyping) {
         loading.value = false;
         scrollToBottom();
-    }, 500);
+    }
   }
 };
 
@@ -630,7 +745,7 @@ const handleFileUpload = async (event) => {
     ElMessage.error("Failed to upload file");
   } finally {
     ingestLoading.value = false;
-    event.target.value = ''; // clear input
+    event.target.value = ''; 
   }
 };
 
@@ -661,8 +776,6 @@ const deleteRagFile = async (filename) => {
   }
 };
 
-
-import { watch } from 'vue';
 watch(activeRagTab, (val) => {
   if (val==='manage') {
     loadRagFiles();
@@ -672,6 +785,9 @@ watch(activeRagTab, (val) => {
 watch(activeTab, (val) => {
   if (val==='rag') {
     loadRagFiles();
+  }
+  if (val==='mcp') {
+    loadMcps();
   }
 });
 
@@ -745,7 +861,7 @@ const formatSize = (bytes) => {
 
 .sidebar-content {
   flex: 1;
-  padding: 10px 16px; /* reduce padding to give more space to list */
+  padding: 10px 16px; 
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -779,20 +895,12 @@ const formatSize = (bytes) => {
   font-weight: 500;
 }
 
-.description {
-  font-size: 11px;
-  color: #9ca3af;
-  margin: 0;
-  line-height: 1.4;
-}
-
 .sidebar-btn {
   width: 100%;
   justify-content: flex-start;
   background: transparent;
   border: 1px solid #374151;
   color: #d1d5db;
-  /* margin-bottom: 10px; */
   margin-left: 0 !important;
   height: 30px;
 }
@@ -812,22 +920,15 @@ const formatSize = (bytes) => {
   background: #4338ca;
 }
 
-/* sidebar-footer removed to give more space to chats */
-
 .session-actions {
   margin-bottom: 10px;
 }
 
 .sessions-list {
-  flex: 2; /* allocate more vertical space to chats */
+  flex: 2;
   overflow-y: auto;
   margin-bottom: 10px;
   padding-right: 5px;
-}
-
-.action-buttons {
-  margin-top: auto;
-  margin-bottom: 10px;
 }
 
 .sessions-list::-webkit-scrollbar {
@@ -882,14 +983,6 @@ const formatSize = (bytes) => {
 
 .delete-session:hover {
   color: #ef4444;
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  background: #10b981;
-  border-radius: 50%;
-  display: inline-block;
 }
 
 /* Chat Area */
@@ -1011,7 +1104,7 @@ const formatSize = (bytes) => {
 }
 
 .avatar {
-  margin-top: auto; /* Bottom align avatar */
+  margin-top: auto; 
   margin-bottom: 8px;
 }
 
@@ -1080,8 +1173,7 @@ const formatSize = (bytes) => {
   margin-top: 10px;
 }
 
-/* Transitions */
-/* Premium Settings Dialog */
+/* Settings Dialog */
 .premium-dialog :deep(.el-dialog__body) {
   padding: 0 !important;
 }
@@ -1159,7 +1251,7 @@ const formatSize = (bytes) => {
   border: 1px solid #e2e8f0;
   padding: 10px;
   margin-bottom: 20px;
-  min-height: 0; /* Important for flex child to be able to shrink and scroll */
+  min-height: 0; 
 }
 
 .footer-actions {
@@ -1193,7 +1285,6 @@ const formatSize = (bytes) => {
   color: #0f172a;
 }
 
-/* Transitions */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.2s ease;
@@ -1204,11 +1295,6 @@ const formatSize = (bytes) => {
   opacity: 0;
 }
 
-.sidebar {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* RAG Dialog Styles */
 .rag-dialog-container {
   padding: 10px 0;
 }

@@ -21,5 +21,6 @@ agent:
     file: memory.json
   rag:
     folder: rag
-
-
+  mcp:
+    folder: mcp
+    file: mcp_conf.json

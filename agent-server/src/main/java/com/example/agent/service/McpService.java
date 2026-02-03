@@ -1,7 +1,9 @@
 package com.example.agent.service;
 
 import com.example.agent.config.AgentConfig;
-import com.example.agent.model.McpConfig;
+import com.example.agent.model.McpInfo;
+import com.example.agent.model.McpTool;
+import com.example.agent.util.mcp.CustomMcpClient;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.agent.tool.ToolSpecification;
@@ -24,7 +26,7 @@ public class McpService extends BaseService{
     private AgentConfig agentConfig;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final List<McpConfig> mcpConfigs = new CopyOnWriteArrayList<>();
+    private final List<McpInfo> mcpInfos = new CopyOnWriteArrayList<>();
     private final RestClient restClient = RestClient.create();
 
     @PostConstruct
@@ -32,23 +34,23 @@ public class McpService extends BaseService{
         loadConfigs();
     }
 
-    public List<McpConfig> getAllConfigs() {
-        return new ArrayList<>(mcpConfigs);
+    public List<McpInfo> getAllConfigs() {
+        return new ArrayList<>(mcpInfos);
     }
 
-    public McpConfig addConfig(McpConfig config) {
+    public McpInfo addConfig(McpInfo config) {
         if (config.getId() == null || config.getId().isEmpty()) {
             config.setId(UUID.randomUUID().toString());
         }
-        mcpConfigs.add(config);
+        mcpInfos.add(config);
         saveConfigs();
         return config;
     }
 
-    public void updateConfig(McpConfig config) {
-        for (int i = 0; i < mcpConfigs.size(); i++) {
-            if (mcpConfigs.get(i).getId().equals(config.getId())) {
-                mcpConfigs.set(i, config);
+    public void updateConfig(McpInfo config) {
+        for (int i = 0; i < mcpInfos.size(); i++) {
+            if (mcpInfos.get(i).getId().equals(config.getId())) {
+                mcpInfos.set(i, config);
                 saveConfigs();
                 return;
             }
@@ -56,7 +58,7 @@ public class McpService extends BaseService{
     }
 
     public void deleteConfig(String id) {
-        mcpConfigs.removeIf(c -> c.getId().equals(id));
+        mcpInfos.removeIf(c -> c.getId().equals(id));
         saveConfigs();
     }
 
@@ -64,9 +66,9 @@ public class McpService extends BaseService{
         File file = new File(agentConfig.getMcpFilePath());
         if (file.exists()) {
             try {
-                List<McpConfig> loaded = objectMapper.readValue(file, new TypeReference<List<McpConfig>>() {});
-                mcpConfigs.clear();
-                mcpConfigs.addAll(loaded);
+                List<McpInfo> loaded = objectMapper.readValue(file, new TypeReference<List<McpInfo>>() {});
+                mcpInfos.clear();
+                mcpInfos.addAll(loaded);
             } catch (IOException e) {
                 logger.error("Failed to load MCP configs", e);
             }
@@ -83,7 +85,7 @@ public class McpService extends BaseService{
                     return;
                 }
             }
-            objectMapper.writerWithDefaultPrettyPrinter().writeValue(file, mcpConfigs);
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(file, mcpInfos);
         } catch (IOException e) {
             logger.error("Failed to save MCP configs", e);
         }
@@ -94,11 +96,11 @@ public class McpService extends BaseService{
      */
     public List<ToolSpecification> getEnabledTools() {
         List<ToolSpecification> specs = new ArrayList<>();
-        for (McpConfig config : mcpConfigs) {
+        for (McpInfo config : mcpInfos) {
             if (config.isEnabled()) {
                 try {
                     String toolsJson = restClient.get()
-                            .uri(config.getBaseUrl() + "/tools")
+                            .uri(config.getBaseUrl() + "/tools/list")
                             .retrieve()
                             .body(String.class);
 
@@ -108,6 +110,7 @@ public class McpService extends BaseService{
                         specs.addAll(serverTools);
                     }
                 } catch (Exception e) {
+                    logger.error(e.getMessage(),e);
                     logger.error("Failed to rest fetch tools from MCP: " + config.getName(), e);
                 }
             }
@@ -115,11 +118,24 @@ public class McpService extends BaseService{
         return specs;
     }
 
+    public List<McpTool> getTools(String id){
+        for (McpInfo config : mcpInfos) {
+            if (!config.isEnabled()) {
+                continue;
+            }
+            if(!config.getId().equals(id)){
+                continue;
+            }
+            return CustomMcpClient.getTools(config.getBaseUrl());
+        }
+        return null;
+    }
+
     /**
      * Executes a tool on the appropriate MCP server.
      */
     public String executeTool(String toolName, String arguments) {
-        for (McpConfig config : mcpConfigs) {
+        for (McpInfo config : mcpInfos) {
             if (config.isEnabled()) {
                 try {
                     Map<String, Object> payload = new HashMap<>();

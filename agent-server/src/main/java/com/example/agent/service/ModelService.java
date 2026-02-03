@@ -1,7 +1,7 @@
 package com.example.agent.service;
 
 import com.example.agent.config.AgentConfig;
-import com.example.agent.model.ModelConfig;
+import com.example.agent.model.ModelInfo;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.model.embedding.EmbeddingModel;
@@ -21,65 +21,65 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 @Service
-public class ModelConfigService extends BaseService{
-    private final static Logger logger= LoggerFactory.getLogger(ModelConfigService.class);
+public class ModelService extends BaseService{
+    private final static Logger logger= LoggerFactory.getLogger(ModelService.class);
 
     @Resource
     private AgentConfig agentConfig;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final List<ModelConfig> modelConfigs = new CopyOnWriteArrayList<>();
+    private final List<ModelInfo> modelInfos = new CopyOnWriteArrayList<>();
 
     @PostConstruct
     public void init() {
         loadConfigs();
     }
 
-    public List<ModelConfig> getAllConfigs() {
-       return new ArrayList<>(modelConfigs);
+    public List<ModelInfo> getAllConfigs() {
+       return new ArrayList<>(modelInfos);
     }
 
-    public List<ModelConfig> getChatConfigs(){
-        return modelConfigs.stream().filter(modelConfig -> modelConfig.getEmbed()==null||!modelConfig.getEmbed()).collect(Collectors.toList());
+    public List<ModelInfo> getChatConfigs(){
+        return modelInfos.stream().filter(modelInfo -> modelInfo.getEmbed()==null||!modelInfo.getEmbed()).collect(Collectors.toList());
     }
 
     public EmbeddingModel getEmbeddingModel() {
-        ModelConfig modelConfig=getEmbedModelConf();
-        if(modelConfig==null){
+        ModelInfo modelInfo =getEmbedModelConf();
+        if(modelInfo ==null){
             return null;
         }
         return OpenAiEmbeddingModel.builder()
-                .baseUrl(modelConfig.getBaseUrl())
-                .apiKey(modelConfig.getApiKey())
-                .modelName(modelConfig.getModelName())
+                .baseUrl(modelInfo.getBaseUrl())
+                .apiKey(modelInfo.getApiKey())
+                .modelName(modelInfo.getModelName())
                 .timeout(Duration.ofSeconds(60))
                 .build();
     }
 
-    private ModelConfig getEmbedModelConf(){
-        return modelConfigs.stream().filter(e->e.getEmbed()!=null&&e.getEmbed()).toList().getFirst();
+    private ModelInfo getEmbedModelConf(){
+        return modelInfos.stream().filter(e->e.getEmbed()!=null&&e.getEmbed()).toList().getFirst();
     }
 
-    public ModelConfig getConfig(String id) {
-        return modelConfigs.stream()
+    public ModelInfo getConfig(String id) {
+        return modelInfos.stream()
                 .filter(c -> c.getId().equals(id))
                 .findFirst()
                 .orElse(null);
     }
 
-    public ModelConfig addConfig(ModelConfig config) {
+    public ModelInfo addConfig(ModelInfo config) {
         if (config.getId() == null || config.getId().isEmpty()) {
             config.setId(UUID.randomUUID().toString());
         }
-        modelConfigs.add(config);
+        modelInfos.add(config);
         saveConfigs();
         return config;
     }
 
-    public void updateConfig(ModelConfig config) {
-        for (int i = 0; i < modelConfigs.size(); i++) {
-            if (modelConfigs.get(i).getId().equals(config.getId())) {
-                modelConfigs.set(i, config);
+    public void updateConfig(ModelInfo config) {
+        for (int i = 0; i < modelInfos.size(); i++) {
+            if (modelInfos.get(i).getId().equals(config.getId())) {
+                modelInfos.set(i, config);
                 saveConfigs();
                 return;
             }
@@ -87,7 +87,7 @@ public class ModelConfigService extends BaseService{
     }
 
     public void deleteConfig(String id) {
-        modelConfigs.removeIf(c -> c.getId().equals(id));
+        modelInfos.removeIf(c -> c.getId().equals(id));
         saveConfigs();
     }
 
@@ -95,9 +95,9 @@ public class ModelConfigService extends BaseService{
         File file = new File(agentConfig.getLlmFilePath());
         if (file.exists()) {
             try {
-                List<ModelConfig> loaded = objectMapper.readValue(file, new TypeReference<List<ModelConfig>>() {});
-                modelConfigs.clear();
-                modelConfigs.addAll(loaded);
+                List<ModelInfo> loaded = objectMapper.readValue(file, new TypeReference<List<ModelInfo>>() {});
+                modelInfos.clear();
+                modelInfos.addAll(loaded);
             } catch (IOException e) {
                logger.error(e.getMessage(),e);
             }
@@ -106,7 +106,7 @@ public class ModelConfigService extends BaseService{
 
     private synchronized void saveConfigs() {
         try {
-            objectMapper.writerWithDefaultPrettyPrinter().writeValue(new File(agentConfig.getLlmFilePath()), modelConfigs);
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(new File(agentConfig.getLlmFilePath()), modelInfos);
         } catch (IOException e) {
             logger.error(e.getMessage(),e);
         }

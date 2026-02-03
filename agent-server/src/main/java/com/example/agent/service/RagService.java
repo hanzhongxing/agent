@@ -26,7 +26,7 @@ public class RagService extends BaseService{
     private AgentConfig agentConfig;
 
     @Autowired
-    private ModelConfigService modelConfigService;
+    private ModelService modelService;
 
     @Autowired
     private EmbeddingStore<TextSegment> embeddingStore;
@@ -52,7 +52,7 @@ public class RagService extends BaseService{
             public void run() {
                 TextSegment segment = TextSegment.from(document.text(), document.metadata());
                 try {
-                    EmbeddingModel embeddingModel=modelConfigService.getEmbeddingModel();
+                    EmbeddingModel embeddingModel= modelService.getEmbeddingModel();
                     if(embeddingModel==null){
                         return;
                     }
@@ -72,7 +72,7 @@ public class RagService extends BaseService{
             public void run() {
                 TextSegment segment = TextSegment.from(content);
                 try {
-                    EmbeddingModel embeddingModel=modelConfigService.getEmbeddingModel();
+                    EmbeddingModel embeddingModel= modelService.getEmbeddingModel();
                     if(embeddingModel==null){
                         return;
                     }
@@ -87,7 +87,7 @@ public class RagService extends BaseService{
     }
 
     public List<TextSegment> search(String query) {
-        EmbeddingModel embeddingModel=modelConfigService.getEmbeddingModel();
+        EmbeddingModel embeddingModel= modelService.getEmbeddingModel();
         if(embeddingModel==null){
             return null;
         }

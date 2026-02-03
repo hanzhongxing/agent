@@ -1,6 +1,7 @@
 package com.example.agent.controller;
 
-import com.example.agent.model.McpConfig;
+import com.example.agent.model.McpInfo;
+import com.example.agent.model.McpTool;
 import com.example.agent.service.McpService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -16,17 +17,17 @@ public class McpController {
     private McpService mcpService;
 
     @GetMapping
-    public List<McpConfig> getConfigs() {
+    public List<McpInfo> getConfigs() {
         return mcpService.getAllConfigs();
     }
 
     @PostMapping
-    public McpConfig addConfig(@RequestBody McpConfig config) {
+    public McpInfo addConfig(@RequestBody McpInfo config) {
         return mcpService.addConfig(config);
     }
 
     @PutMapping("/{id}")
-    public void updateConfig(@PathVariable String id, @RequestBody McpConfig config) {
+    public void updateConfig(@PathVariable String id, @RequestBody McpInfo config) {
         config.setId(id);
         mcpService.updateConfig(config);
     }
@@ -35,4 +36,11 @@ public class McpController {
     public void deleteConfig(@PathVariable String id) {
         mcpService.deleteConfig(id);
     }
+
+
+    @GetMapping("/{id}")
+    public List<McpTool> getTools(@PathVariable String id) {
+        return mcpService.getTools(id);
+    }
+
 }

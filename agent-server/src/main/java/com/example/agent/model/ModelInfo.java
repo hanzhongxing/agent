@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class ModelConfig {
+public class ModelInfo {
     private String id;
     private String name;
     private String baseUrl;

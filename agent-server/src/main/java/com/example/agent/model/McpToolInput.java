@@ -8,6 +8,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class McpToolInput {
+    private String field;
+    private String type;
+    private String desc;
     private Boolean required;
 
 }

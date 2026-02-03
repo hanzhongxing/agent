@@ -11,6 +11,7 @@ import org.springframework.http.MediaType;
 import java.net.http.HttpRequest;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class CustomMcpClient {
 
@@ -40,7 +41,7 @@ public class CustomMcpClient {
             mcpTool.setInputs(buildInputs(tool.inputSchema()));
             mcpTools.add(mcpTool);
         }
-        return null;
+        return mcpTools;
     }
 
     private static List<McpToolInput> buildInputs(McpSchema.JsonSchema jsonSchema){
@@ -48,7 +49,24 @@ public class CustomMcpClient {
         if(jsonSchema==null){
             return mcpToolInputs;
         }
-        jsonSchema.definitions();
+        String schemeType=jsonSchema.type();
+        if(!"object".equals(schemeType)){
+            return mcpToolInputs;
+        }
+        Map<String, Object> properties=jsonSchema.properties();
+        if(properties==null||properties.isEmpty()){
+            return mcpToolInputs;
+        }
+        McpToolInput toolInput=null;
+        for(String key:properties.keySet()){
+            toolInput=new McpToolInput();
+            toolInput.setField(key);
+            toolInput.setRequired(jsonSchema.required().contains(key));
+            Map<String,Object> values=(Map<String,Object>)properties.get(key);
+            toolInput.setType(values.get("type").toString());
+            toolInput.setDesc(values.get("description").toString());
+            mcpToolInputs.add(toolInput);
+        }
         return mcpToolInputs;
     }
 }

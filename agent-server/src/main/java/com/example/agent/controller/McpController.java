@@ -38,9 +38,13 @@ public class McpController {
     }
 
 
-    @GetMapping("/{id}")
+    @GetMapping("/{id}/tools")
     public List<McpTool> getTools(@PathVariable String id) {
         return mcpService.getTools(id);
     }
 
+    @PostMapping("/{id}/tool/call")
+    public String callTool(@PathVariable String id,String name,String inputs) {
+        return mcpService.callTools(id,name,inputs);
+    }
 }

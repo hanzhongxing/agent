@@ -148,7 +148,7 @@
           <div 
             v-for="tab in ['model','rag','mcp']" 
             :key="tab" 
-            :class="['settings-tab', { active: (activeTab === tab || activeTab === ('add'+tab)) }]" 
+            :class="['settings-tab', { active: (activeTab === tab || activeTab.indexOf(tab) > -1)}]" 
             @click="activeTab = tab"
           >
             <el-icon v-if="tab === 'model'"><Menu/></el-icon>
@@ -308,12 +308,15 @@
                     <el-table-column label="Actions" width="100" align="center">
                     <template #default="scope">
                         <el-button-group>
-                        <el-tooltip content="Edit" placement="top">
-                            <el-button circle size="small" type="primary" @click="editMcp(scope.row)"><el-icon><EditPen /></el-icon></el-button>
-                        </el-tooltip>
-                        <el-tooltip content="Delete" placement="top">
-                            <el-button circle size="small" type="danger" @click="deleteMcp(scope.row.id)"><el-icon><DeleteFilled /></el-icon></el-button>
-                        </el-tooltip>
+                          <el-tooltip content="View" placement="top">
+                              <el-button circle size="small" type="info" @click="viewMcp(scope.row)"><el-icon><View /></el-icon></el-button>
+                          </el-tooltip>
+                          <el-tooltip content="Edit" placement="top">
+                              <el-button circle size="small" type="primary" @click="editMcp(scope.row)"><el-icon><EditPen /></el-icon></el-button>
+                          </el-tooltip>
+                          <el-tooltip content="Delete" placement="top">
+                              <el-button circle size="small" type="danger" @click="deleteMcp(scope.row.id)"><el-icon><DeleteFilled /></el-icon></el-button>
+                          </el-tooltip>
                         </el-button-group>
                     </template>
                     </el-table-column>
@@ -351,6 +354,48 @@
                     </el-button>
                 </div>
             </div>
+
+              <!-- MCP view mcp tools -->
+             <div v-else-if="activeTab === 'viewmcp'" key="viewmcp" class="settings-content">
+                <div class="content-header">
+                  <h3>MCP Tools</h3>
+                  <p>View tools available from MCP servers.</p>
+                </div>
+                <div class="tool-list">
+                   <el-collapse>
+                      <el-collapse-item v-for="tool in mcpTools" :key="tool.name">
+                        <template #title>
+                          <div class="tool-header">
+                            <el-icon class="tool-name-icon"><Connection /></el-icon>
+                            <span class="tool-name">{{ tool.name }}</span>
+                          </div>
+                        </template> 
+                        <div class="tool-details">
+                          <span class="description">{{ tool.description }}</span>
+                          <div class="tool-inputs" v-if="tool.inputs&&tool.inputs.length>0">
+                              <div class="input-item" v-for="input in tool.inputs" :key="input.field">
+                                <span class="input-name">{{ input.field }}</span>
+                                <span class="input-type">({{ input.type }})</span>
+                                <span class="input-required">{{ input.required ? 'Required' : 'Optional' }}</span>
+                                <span class="input-desc">{{ input.desc }}</span>
+                                <el-input v-model="input.value" placeholder="Enter value"></el-input>
+                              </div>
+                          </div>
+                          <div class="tool-function">
+                            <el-button type="primary" :loading="tool.loading" @click="executeMcpTool(tool)" size="small">Execute Tool</el-button>
+                          </div>
+                          <div class="tool-response" v-if="tool.response">
+                            <h4>Response:</h4>
+                            <pre>{{ tool.response }}</pre>
+                          </div>
+                        </div>
+                      </el-collapse-item>
+                   </el-collapse>
+                </div>
+                <div class="footer-actions">
+                    <el-button @click="activeTab = 'mcp'" size="large" plain>Cancel</el-button>
+                </div>
+            </div>
           </transition>
         </div>
       </div>
@@ -366,7 +411,7 @@ import { ElMessage } from 'element-plus';
 import { 
   Cpu, Fold, Expand, DocumentAdd, Delete, Setting, 
   ChatDotRound, Position, Search, Menu, Plus, Edit,
-  Link, Key, PriceTag, EditPen, DeleteFilled,
+  Link, Key, PriceTag,View, EditPen,DeleteFilled,
   ChatLineRound, Close, UploadFilled, Loading,
   Connection, Monitor
 } from '@element-plus/icons-vue';
@@ -415,11 +460,33 @@ const newModel = ref({
 const mcpConfigs = ref([]);
 const newMcp = ref({ name: '', baseUrl: '', enabled: true });
 const isEditingMcp = computed(() => !!newMcp.value.id);
-
+const currentMcpId = ref(null);
+const mcpTools=ref([]);
 const openSetting = () => {
    showSettingsDialog.value = true;
    loadModels();
    loadMcps();
+};
+
+// execute MCP tool
+const executeMcpTool = async (tool) => {
+   try {
+      tool.loading = true;
+      const inputs = {};
+      if(tool.inputs && tool.inputs.length > 0) {
+         tool.inputs.forEach(input => {
+            inputs[input.field] = input.value || '';
+         });
+      }
+      const response = await chatApi.executeMcpTool(currentMcpId.value,tool.name,JSON.stringify(inputs));
+      tool.loading = false;
+      tool.response = response;
+      ElMessage.success("Tool executed successfully");
+      // Optionally handle response
+   } catch(e) {
+      tool.loading = false;
+      ElMessage.error("Failed to execute tool");
+   }
 };
 
 // Computed
@@ -468,6 +535,13 @@ const loadMcps = async () => {
 const startAddMcp = () => {
     newMcp.value = { name: '', baseUrl: '', enabled: true };
     activeTab.value = 'addmcp';
+};
+
+const viewMcp = async (row) => {
+    activeTab.value = 'viewmcp';
+    currentMcpId.value=row.id;
+    const tools = await chatApi.getMcpTools(row.id);
+    mcpTools.value = tools;
 };
 
 const editMcp = (row) => {
@@ -1356,4 +1430,58 @@ const formatSize = (bytes) => {
 .custom-tabs :deep(.el-tabs__active-bar) {
   background-color: #6366f1;
 }
+
+.tool-list{
+  display: inline-block;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.tool-list :deep(.tool-header) {
+  gap: 10px;
+}
+
+.tool-list :deep(.tool-name-icon) {
+   display: inline-block;
+  vertical-align: middle; /* 垂直对齐 */
+  font-size: 14px; /* 重置字体大小 */
+}
+
+.tool-list :deep(.tool-name) {
+   display: inline-block;
+  vertical-align: middle; /* 垂直对齐 */
+  font-size: 14px; /* 重置字体大小 */
+  margin-left:10px;
+  font-weight: bold;
+}
+
+.tool-list :deep(.tool-details) {
+  display: inline-block;
+  width: 100%;
+  padding: 10px 20px;
+}
+
+.tool-list :deep(.tool-details .description) {
+  display: inline-block;
+  width: 100%;
+  font-size:14px;
+  margin-bottom: 10px;
+}
+
+.tool-list :deep(.tool-inputs) {
+  display: inline-block;
+  width: 100%;
+  font-size:14px;
+  margin-bottom: 10px;
+}
+
+.tool-list :deep(.input-desc) {
+  display: inline-block;
+  width: 100%;
+  font-size:12px;
+  margin-bottom: 10px;
+  color: #6b7280;
+}
+
+
 </style>

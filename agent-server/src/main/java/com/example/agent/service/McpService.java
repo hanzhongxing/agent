@@ -131,6 +131,10 @@ public class McpService extends BaseService{
         return null;
     }
 
+    public String callTools(String id,String name,String inputs){
+        return "success";
+    }
+
     /**
      * Executes a tool on the appropriate MCP server.
      */

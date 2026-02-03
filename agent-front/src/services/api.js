@@ -143,5 +143,15 @@ export const chatApi = {
 
     async deleteMcpServer(id) {
         await axios.delete(`${API_URL}/mcp/${id}`);
+    },
+
+    async getMcpTools(id) {
+        const response = await axios.get(`${API_URL}/mcp/${id}/tools`);
+        return response.data;
+    },
+
+    async executeMcpTool(id, name, inputs) {
+         const response = await axios.post(`${API_URL}/mcp/${id}/tool/call`, {name,inputs });
+        return response.data;
     }
 };

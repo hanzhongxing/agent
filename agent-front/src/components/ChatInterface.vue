@@ -376,7 +376,8 @@
                               <div class="input-item" v-for="input in tool.inputs" :key="input.field">
                                 <span class="input-name">{{ input.field }}</span>
                                 <span class="input-type">({{ input.type }})</span>
-                                <span class="input-required">{{ input.required ? 'Required' : 'Optional' }}</span>
+                                <span v-if="input.required" class="input-required">Required</span>
+                                <span v-else class="input-optional">Optional</span>
                                 <span class="input-desc">{{ input.desc }}</span>
                                 <el-input v-model="input.value" placeholder="Enter value"></el-input>
                               </div>
@@ -1505,6 +1506,15 @@ const formatSize = (bytes) => {
     padding: 2px 6px;
     border-radius: 4px;
   }
+
+   .tool-inputs .input-item .input-optional {
+    font-size: 11px;
+    color: #3b82f6;
+    background-color: #dbeafe;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
   
   .tool-inputs .input-item .input-desc {
     flex-basis: 100%; /* Make description take full width */

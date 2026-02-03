@@ -298,9 +298,9 @@
                 </div>
                 <div class="table-container">
                 <el-table :data="mcpConfigs" style="width: 100%" height="100%" class="custom-table">
-                    <el-table-column prop="name" label="Name" min-width="120" />
-                    <el-table-column prop="baseUrl" label="Endpoint URL" min-width="200" />
-                    <el-table-column label="Status" width="100">
+                    <el-table-column prop="name" label="Name" max-width="100p"/>
+                    <el-table-column prop="baseUrl" label="Endpoint URL" min-width="150"/>
+                    <el-table-column label="Status" width="80">
                     <template #default="scope">
                         <el-tag :type="scope.row.enabled ? 'success' : 'info'" size="small">{{ scope.row.enabled ? 'Active' : 'Disabled' }}</el-tag>
                     </template>
@@ -1255,8 +1255,7 @@ const formatSize = (bytes) => {
 }
 
 .settings-sidebar {
-  width: 150px;
-  background: #fff;
+    width: 200px;
   border-right: 1px solid #e2e8f0;
   padding: 20px 0;
 }
@@ -1431,56 +1430,135 @@ const formatSize = (bytes) => {
   background-color: #6366f1;
 }
 
-.tool-list{
-  display: inline-block;
-  height: 100%;
-  overflow-y: auto;
-}
-
-.tool-list :deep(.tool-header) {
-  gap: 10px;
-}
-
-.tool-list :deep(.tool-name-icon) {
-   display: inline-block;
-  vertical-align: middle; /* 垂直对齐 */
-  font-size: 14px; /* 重置字体大小 */
-}
-
-.tool-list :deep(.tool-name) {
-   display: inline-block;
-  vertical-align: middle; /* 垂直对齐 */
-  font-size: 14px; /* 重置字体大小 */
-  margin-left:10px;
-  font-weight: bold;
-}
-
-.tool-list :deep(.tool-details) {
-  display: inline-block;
-  width: 100%;
-  padding: 10px 20px;
-}
-
-.tool-list :deep(.tool-details .description) {
-  display: inline-block;
-  width: 100%;
-  font-size:14px;
-  margin-bottom: 10px;
-}
-
-.tool-list :deep(.tool-inputs) {
-  display: inline-block;
-  width: 100%;
-  font-size:14px;
-  margin-bottom: 10px;
-}
-
-.tool-list :deep(.input-desc) {
-  display: inline-block;
-  width: 100%;
-  font-size:12px;
-  margin-bottom: 10px;
-  color: #6b7280;
+.custom-tabs :deep(.el-tabs__active-bar) {
+    background-color: #6366f1;
+  }
+  
+  .settings-content .tool-list {
+    flex: 1; /* Make it take available vertical space */
+    overflow-y: auto; /* Enable scrolling if content overflows */
+    padding-right: 10px; /* Add some padding for scrollbar */
+    margin-bottom: 20px; /* Space before footer actions */
+  }
+  
+  .settings-content .tool-list::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .settings-content .tool-list::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 3px;
+  }
+  
+  .tool-header {
+    display: flex; /* Use flexbox for alignment */
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    font-weight: bold;
+    color: #334155;
+    padding: 10px 0;
+  }
+  
+  .tool-name-icon {
+    font-size: 16px;
+    color: #6366f1;
+  }
+  
+  .tool-details {
+    padding: 10px 15px;
+    background-color: #f8fafc;
+    border-radius: 8px;
+    margin-top: 5px;
+  }
+  
+  .tool-details .description {
+    display: block; /* Ensure description takes full width */
+    font-size: 13px;
+    color: #64748b;
+    margin-bottom: 15px;
+  }
+  
+  .tool-inputs .input-item {
+    margin-bottom: 15px;
+    display: flex;
+    flex-wrap: wrap; /* Allow items to wrap */
+    align-items: center;
+    gap: 8px; /* Space between input elements */
+  }
+  
+  .tool-inputs .input-item .input-name {
+    font-weight: 600;
+    color: #334155;
+    font-size: 13px;
+  }
+  
+  .tool-inputs .input-item .input-type {
+    font-size: 12px;
+    color: #94a3b8;
+  }
+  
+  .tool-inputs .input-item .input-required {
+    font-size: 11px;
+    color: #ef4444;
+    background-color: #fee2e2;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  
+  .tool-inputs .input-item .input-desc {
+    flex-basis: 100%; /* Make description take full width */
+    font-size: 12px;
+    color: #9ca3af;
+    margin-top: 5px;
+    margin-bottom: 0;
+  }
+  
+  .tool-inputs .input-item :deep(.el-input) {
+    flex: 1; /* Allow input to grow */
+    min-width: 150px; /* Minimum width for input */
+  }
+  
+  .tool-function {
+    margin-top: 15px;
+    text-align: right;
+  }
+  
+  .tool-response {
+    margin-top: 20px;
+    background-color: #e2e8f0;
+    padding: 15px;
+    border-radius: 8px;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+    font-size: 13px;
+    color: #1a202c;
+    white-space: pre-wrap; /* Preserve whitespace and wrap text */
+    word-break: break-all; /* Break long words */
+  }
+  
+  .tool-response h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #334155;
+  }
+  
+  .el-collapse {
+    border-top: none;
+    border-bottom: none;
+  }
+  
+  .el-collapse-item :deep(.el-collapse-item__header) {
+    border-bottom: 1px solid #e2e8f0;
+    background-color: transparent;
+  }
+  
+  .el-collapse-item :deep(.el-collapse-item__wrap) {
+    background-color: transparent;
+    border-bottom: none;
+  }
+  
+  .el-collapse-item :deep(.el-collapse-item__content) {
+    padding-bottom: 0;
 }
 
 

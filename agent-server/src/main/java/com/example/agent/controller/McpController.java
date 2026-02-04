@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/mcp")
@@ -43,8 +44,10 @@ public class McpController {
         return mcpService.getTools(id);
     }
 
-    @PostMapping("/{id}/tool/call")
-    public String callTool(@PathVariable String id,String name,String inputs) {
+    @PostMapping("/tool/call/{id}")
+    public String callTool(@PathVariable String id,@RequestBody Map<String,Object> params) {
+        String name=params.get("name").toString();
+        String inputs=params.get("inputs").toString();
         return mcpService.callTools(id,name,inputs);
     }
 }

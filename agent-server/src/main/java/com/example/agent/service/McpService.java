@@ -1,6 +1,7 @@
 package com.example.agent.service;
 
 import com.example.agent.config.AgentConfig;
+import com.example.agent.model.BaseRes;
 import com.example.agent.model.McpInfo;
 import com.example.agent.model.McpTool;
 import com.example.agent.util.mcp.CustomMcpClient;
@@ -118,6 +119,20 @@ public class McpService extends BaseService{
         return specs;
     }
 
+    public List<ToolSpecification> getAllTools() {
+        List<ToolSpecification> specs = new ArrayList<>();
+        for (McpInfo config : mcpInfos) {
+            if (!config.isEnabled()) {
+                continue;
+            }
+            List<ToolSpecification> tools=CustomMcpClient.getTools4Chat(config.getBaseUrl());
+            if(!tools.isEmpty()){
+                specs.addAll(tools);
+            }
+        }
+        return specs;
+    }
+
     public List<McpTool> getTools(String id){
         for (McpInfo config : mcpInfos) {
             if (!config.isEnabled()) {
@@ -126,13 +141,33 @@ public class McpService extends BaseService{
             if(!config.getId().equals(id)){
                 continue;
             }
-            return CustomMcpClient.getTools(config.getBaseUrl());
+            return CustomMcpClient.getTools4Show(config.getBaseUrl());
         }
         return null;
     }
 
     public String callTools(String id,String name,String inputs){
-        return "success";
+        McpInfo mcpInfo=getMcpInfo(id);
+        if(mcpInfo==null){
+            return BaseRes.Error(50001,"未找到对应的mcp服务");
+        }
+        McpTool mcpTool=getTool(mcpInfo,name);
+        if(mcpTool==null){
+            return BaseRes.Error(50001,"未找到注册的tool");
+        }
+        return callMcpTool(mcpInfo,mcpTool,inputs);
+    }
+
+    private McpInfo getMcpInfo(String id){
+        for (McpInfo config : mcpInfos) {
+            if (!config.isEnabled()) {
+                continue;
+            }
+            if(config.getId().equals(id)){
+                return config;
+            }
+        }
+        return null;
     }
 
     /**
@@ -141,26 +176,30 @@ public class McpService extends BaseService{
     public String executeTool(String toolName, String arguments) {
         for (McpInfo config : mcpInfos) {
             if (config.isEnabled()) {
-                try {
-                    Map<String, Object> payload = new HashMap<>();
-                    payload.put("name", toolName);
-                    try {
-                        Map<String, Object> argsMap = objectMapper.readValue(arguments, new TypeReference<Map<String, Object>>() {});
-                        payload.put("arguments", argsMap);
-                    } catch (Exception e) {
-                        payload.put("arguments", arguments);
-                    }
-                    return restClient.post()
-                            .uri(config.getBaseUrl() + "/tools/" + toolName)
-                            .body(payload)
-                            .retrieve()
-                            .body(String.class);
-
-                } catch (Exception e) {
-                    logger.error("Tool {} execution failed on server {}", toolName, config.getName());
+                McpTool mcpTool=getTool(config,toolName);
+                if(mcpTool==null){
+                    continue;
                 }
+                return callMcpTool(config,mcpTool,arguments);
             }
         }
         return "Error: Tool " + toolName + " not found or execution failed on all MCP servers.";
+    }
+
+    private String callMcpTool(McpInfo mcpInfo,McpTool mcpTool,String arguments){
+        return CustomMcpClient.callTool(mcpInfo.getBaseUrl(),mcpTool.getName(),arguments);
+    }
+
+    private McpTool getTool(McpInfo mcpInfo,String name){
+        List<McpTool> tools= CustomMcpClient.getTools4Show(mcpInfo.getBaseUrl());
+        if(tools.isEmpty()){
+            return null;
+        }
+        for(McpTool mcpTool:tools){
+            if(mcpTool.getName().equals(name)){
+                return mcpTool;
+            }
+        }
+        return null;
     }
 }

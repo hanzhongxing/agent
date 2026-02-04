@@ -151,7 +151,7 @@ export const chatApi = {
     },
 
     async executeMcpTool(id, name, inputs) {
-         const response = await axios.post(`${API_URL}/mcp/${id}/tool/call`, {name,inputs });
+         const response = await axios.post(`${API_URL}/mcp/tool/call/${id}`, {name,inputs });
         return response.data;
     }
 };

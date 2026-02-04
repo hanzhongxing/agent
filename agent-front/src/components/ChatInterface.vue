@@ -1545,6 +1545,10 @@ const formatSize = (bytes) => {
     white-space: pre-wrap; /* Preserve whitespace and wrap text */
     word-break: break-all; /* Break long words */
   }
+
+  .tool-response pre {
+    overflow: auto;
+  }
   
   .tool-response h4 {
     margin-top: 0;

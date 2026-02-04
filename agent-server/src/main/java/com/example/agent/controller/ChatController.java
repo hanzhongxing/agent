@@ -101,7 +101,7 @@ public class ChatController {
                     for (ToolExecutionRequest toolRequest : aiMessage.toolExecutionRequests()) {
                         String toolName = toolRequest.name();
                         String args = toolRequest.arguments();
-                        sink.next("\n[Executing tool: " + toolName + "]\n");
+                        sink.next("\n[mcp tool: " + toolName + "]\n");
                         String result = mcpService.executeTool(toolName, args);
                         messages.add(ToolExecutionResultMessage.from(toolRequest, result));
                     }

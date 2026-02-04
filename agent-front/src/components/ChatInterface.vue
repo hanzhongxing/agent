@@ -1,7 +1,6 @@
 <template>
   <div class="app-container">
     <div class="chat-window">
-      <!-- Sidebar / Config Panel -->
       <div class="sidebar" :class="{ 'collapsed': isSidebarCollapsed }">
         <div class="sidebar-header">
           <div class="logo">
@@ -87,68 +86,63 @@
              </div>
           </div>
 
-          <!-- <div v-for="(msg, index) in currentSession.messages" :key="index" :class="['message-row', msg.role]">
-             <div class="avatar">
-               <el-avatar :size="36" :src="msg.role === 'user' ? '/user.png' : '/robot-avatar.png'" :icon="msg.role === 'assistant' ? 'ElementPlus' : ''" :class="msg.role">
-                  <template #default v-if="msg.role === 'assistant'"><el-icon><Cpu /></el-icon></template>
-               </el-avatar>
-             </div>
-             <div class="message-bubble-container">
-               <div :class="['message-bubble', { 'mcp-tool-message': isMcpToolCall(msg) }]" v-html="msg.content">
-               </div>
-               <span class="timestamp">{{ formatTime(new Date()) }}</span>
-             </div>
-          </div> -->
-          
+           <!-- 消息循环 -->
           <div v-for="(msg, index) in currentSession.messages" :key="index" :class="['message-row', getMessageClass(msg)]">
              
-             <!-- Avatar 逻辑 -->
-             <div class="avatar" v-if="msg.role !== 'tool' && msg.role !== 'assistant_tool_request'">
-               <el-avatar :size="36" :src="msg.role === 'user' ? '/user.png' : '/robot-avatar.png'" :class="msg.role">
+             <!-- Avatar 逻辑优化：需求2 -->
+             <div class="avatar" :style="{ visibility: showAvatar(msg, index) ? 'visible' : 'hidden' }">
+               <el-avatar :size="36" :src="msg.role === 'user' ? '/user.png' : '/robot-avatar.png'" :class="msg.role" v-if="showAvatar(msg, index)">
                   <template #default v-if="msg.role === 'assistant'"><el-icon><Cpu /></el-icon></template>
                </el-avatar>
+               <!-- 占位符，保持对齐 -->
+               <div v-else style="width: 36px; height: 36px;"></div>
              </div>
 
              <!-- 消息气泡容器 -->
              <div class="message-bubble-container">
                
                <!-- 1. 普通文本消息 -->
-               <div v-if="msg.role === 'user' || msg.role === 'assistant'" 
+               <div v-if="msg.role === 'user' || (msg.role === 'assistant' && !msg.isTool)" 
                     class="message-bubble" 
                     v-html="renderContent(msg.content)">
                </div>
 
                <!-- 2. 工具调用过程展示 (Tool Card) -->
-               <div v-else-if="msg.role === 'tool' || msg.role === 'assistant_tool_request' || msg.isTool" class="tool-card">
+               <div v-else-if="msg.isTool" class="tool-card">
                   <div class="tool-header" @click="msg.expanded = !msg.expanded">
                     <div class="tool-title">
                       <el-icon class="tool-icon"><Connection /></el-icon>
-                      <span>Used Tool: <strong>{{ msg.toolName || (msg.toolCalls && msg.toolCalls[0].name) || 'Unknown Tool' }}</strong></span>
+                      <!-- 优先显示解析出的工具名 -->
+                      <span>Used Tool: <strong>{{ msg.toolName || getToolName(msg) }}</strong></span>
                     </div>
                     <el-icon :class="['expand-icon', { expanded: msg.expanded }]"><ArrowRight /></el-icon>
                   </div>
                   
                   <el-collapse-transition>
                     <div v-show="msg.expanded" class="tool-details">
-                      <!-- Input Arguments -->
+                      <!-- Input Arguments: 需求1 -->
                       <div class="detail-section">
                         <div class="section-label">Input</div>
                         <div class="code-block json">
-                          {{ formatArgs(msg.toolCalls ? msg.toolCalls[0].arguments : msg.args) }}
+                          {{ formatArgs(msg.args || msg.toolCalls) }}
                         </div>
                       </div>
                       
-                      <!-- Output Result -->
+                      <!-- Output Result: 需求3 (XML渲染) -->
                       <div class="detail-section">
                         <div class="section-label">Output</div>
-                        <!-- 使用 pre 标签保留格式，并进行 text 转义以显示 XML -->
-                        <pre class="code-block xml">{{ msg.output || msg.content }}</pre>
+                        
+                        <!-- 如果检测到 HTML/XML，渲染 DOM -->
+                        <div v-if="isHtmlOrXml(msg.output)" class="xml-render-block" v-html="msg.output"></div>
+                        
+                        <!-- 否则显示代码块 -->
+                        <pre v-else class="code-block xml">{{ msg.output || msg.content }}</pre>
                       </div>
                     </div>
                   </el-collapse-transition>
                </div>
 
-               <span class="timestamp" v-if="msg.role !== 'tool'">{{ formatTime(new Date()) }}</span>
+               <span class="timestamp" v-if="msg.role !== 'tool' && !msg.isTool">{{ formatTime(new Date()) }}</span>
              </div>
           </div>
 
@@ -158,7 +152,6 @@
                <span></span><span></span><span></span>
              </div>
           </div>
-        </div>
 
         <div class="input-section">
            <div class="input-wrapper">
@@ -191,8 +184,8 @@
            </div>
         </div>
       </div>
+      </div>
     </div>
-
     <!-- Settings Dialog -->
     <el-dialog v-model="showSettingsDialog" title="Configuration" width="800px" class="premium-dialog" center align-center>
       <div class="dialog-layout">
@@ -492,10 +485,29 @@ const ragFilesLoading = ref(false);
 const chatHistory = ref(null);
 const isSidebarCollapsed = ref(false);
 
+// 辅助函数：决定是否显示头像 (需求2)
+const showAvatar = (msg, index) => {
+    if (msg.role === 'user') return true;
+    if (msg.isTool) return false; // 工具卡片不显示头像
+    
+    // 如果是 assistant 消息
+    if (msg.role === 'assistant') {
+        // 如果上一条消息是工具调用，则不显示头像，视觉上延续工具调用的上下文
+        if (index > 0) {
+            const prevMsg = currentSession.value.messages[index - 1];
+            if (prevMsg.isTool) {
+                return false;
+            }
+        }
+        return true;
+    }
+    return true;
+};
+
 // 新增辅助函数
 const getMessageClass = (msg) => {
   if (msg.role === 'user') return 'user';
-  if (msg.role === 'tool' || msg.role === 'assistant_tool_request' || msg.isTool) return 'tool-row';
+  if (msg.isTool) return 'tool-row'; // 使用 isTool 标记
   return 'assistant';
 };
 
@@ -507,9 +519,20 @@ const renderContent = (content) => {
   return content.replace(/\n/g, '<br>');
 };
 
-// 格式化 JSON 参数显示
+// 格式化参数显示
 const formatArgs = (args) => {
   if (!args) return '{}';
+  // 如果已经是数组(来自后端 List)，取第一个元素的 arguments
+  if (Array.isArray(args) && args.length > 0) {
+      // 这里的 arguments 可能是 JSON 字符串
+      try {
+          const argStr = args[0].arguments;
+          const obj = JSON.parse(argStr);
+          return JSON.stringify(obj, null, 2);
+      } catch (e) {
+          return args[0].arguments;
+      }
+  }
   if (typeof args === 'object') return JSON.stringify(args, null, 2);
   try {
     const obj = JSON.parse(args);
@@ -523,6 +546,26 @@ const isMcpToolCall = (msg) => {
   // 假设后端返回的工具调用消息会有一个特定的标记，例如以 "TOOL_CALL_RESULT:" 开头
   return msg.role === 'assistant' && msg.content.startsWith('TOOL_CALL_RESULT:');
 };
+
+const getToolName = (msg) => {
+    if (msg.toolName) return msg.toolName;
+    if (msg.toolCalls && msg.toolCalls.length > 0) return msg.toolCalls[0].name;
+    // 兼容历史数据解析
+    if (msg.args) {
+        // 如果 args 是 JSON 字符串且包含 name，可以尝试解析
+        return 'Tool';
+    }
+    return 'Unknown Tool';
+};
+
+// 检测是否为 XML/HTML (需求3)
+const isHtmlOrXml = (content) => {
+    if (!content || typeof content !== 'string') return false;
+    const trimmed = content.trim();
+    // 简单判断：以 < 开头且包含 >，或者包含明显的 xml 标签
+    return (trimmed.startsWith('<') && trimmed.endsWith('>')) || 
+           (trimmed.includes('<?xml') || trimmed.includes('</div>') || trimmed.includes('</p>'));
+}
 
 const currentSession = computed(() => {
     return sessions.value.find(s => s.id === currentSessionId.value) || sessions.value[0];
@@ -682,27 +725,58 @@ const loadCurrentSessionMessages = async () => {
     if (!currentSessionId.value) return;
     try {
         const history = await chatApi.getSessionMessages(currentSessionId.value);
-        // 处理历史消息，使其适配 UI
-        currentSession.value.messages = history.map(msg => {
-            if (msg.role === 'tool') {
-                return { ...msg, expanded: false, isTool: true };
-            }
+        
+        const processedMessages = [];
+        
+        for (let i = 0; i < history.length; i++) {
+            const msg = history[i];
+            
+            // 如果是 AI 发起的工具请求 (Inputs)
             if (msg.role === 'assistant_tool_request') {
-                // 这个通常和 tool 是一对，可以在这里做合并逻辑，
-                // 或者简单起见，只显示 'tool' 类型的 Output，把 Request 隐藏或合并
-                // 这里为了简化，我们假设 history 返回了成对数据，我们只渲染 output 那个即可
-                // 但为了完整性，我们也可以渲染 request。
-                // *优化策略*: 后端 memoryController 返回的 tool 消息包含了 output，
-                // 而 request 包含了 input。这里我们可能需要稍微调整后端把它们合并，
-                // 或者在前端做一下合并。
-                // 这里假设我们只渲染 role='tool' (包含 output) 的消息，
-                // 如果需要 input，可以从上一条 assistant_tool_request 获取（这需要更复杂的逻辑）
-                
-                // 简单处理：仅标记，让 template 渲染
-                 return { ...msg, expanded: false, isTool: true };
+                // 向后查看下一条是否是工具结果 (Output)
+                if (i + 1 < history.length && history[i+1].role === 'tool') {
+                    const toolResultMsg = history[i+1];
+                    
+                    // 合并：创建一个前端展示用的工具消息
+                    processedMessages.push({
+                        role: 'tool', // 保持 role 为 tool
+                        isTool: true,
+                        toolName: msg.toolCalls[0].name,
+                        args: msg.toolCalls, // 存入输入参数
+                        output: toolResultMsg.output, // 存入输出结果
+                        expanded: false // 历史记录默认折叠
+                    });
+                    // 跳过下一条（因为已经合并了）
+                    i++; 
+                } else {
+                    // 如果只有请求没有结果（异常情况），也显示出来
+                    processedMessages.push({
+                         role: 'tool',
+                         isTool: true,
+                         toolName: msg.toolCalls[0].name,
+                         args: msg.toolCalls,
+                         output: '(No output recorded)',
+                         expanded: false
+                    });
+                }
+            } 
+            // 如果是单独的 tool (不应该发生，因为上面已经合并了，但为了健壮性)
+            else if (msg.role === 'tool') {
+                 processedMessages.push({
+                    ...msg,
+                    isTool: true,
+                    expanded: false,
+                    // 尝试如果没有 args，显示 output
+                    args: msg.args || '{}' 
+                 });
             }
-            return msg;
-        });
+            else {
+                // 普通用户或助手消息
+                processedMessages.push(msg);
+            }
+        }
+        
+        currentSession.value.messages = processedMessages;
         scrollToBottom();
     } catch (e) {
         console.error("Failed to load session messages", e);
@@ -825,7 +899,6 @@ const scrollToBottom = async () => {
   }
 };
 
-// 重写 sendMessage 处理流式特殊标记
 const sendMessage = async () => {
   if (!inputMessage.value.trim() || loading.value) return;
   
@@ -871,10 +944,10 @@ const sendMessage = async () => {
                 // 创建新的工具消息卡片
                 currentToolMsg = {
                     role: 'tool',
-                    isTool: true,
-                    expanded: true, // 新工具调用默认展开
+                    isTool: true, // 确保标记为工具
+                    expanded: true, // 实时流默认展开
                     toolName: 'Detecting...',
-                    args: '',
+                    args: '', // 这里的 args 稍后会被填充 JSON 字符串
                     output: ''
                 };
                 session.messages.push(currentToolMsg);
@@ -1829,5 +1902,64 @@ const formatSize = (bytes) => {
       /* 保持原来的样式，但去掉 max-width 限制，让 container 控制 */
       max-width: 100%; 
   }
+
+  /* 针对 HTML/XML 渲染的样式 */
+.xml-render-block {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    padding: 15px;
+    border-radius: 6px;
+    margin-top: 5px;
+    overflow-x: auto;
+    font-size: 14px;
+    color: #334155;
+}
+
+/* 确保 tool-card 能够容纳较宽的内容 */
+.tool-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background-color: #f8fafc;
+    overflow: hidden;
+    width: 100%;
+    /* max-width: 600px;  移除最大宽度限制，以便 XML 渲染 */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+    margin-bottom: 0; /* 头像对齐调整 */
+}
+
+/* 调整 Tool Row 的对齐 */
+.tool-row {
+    width: 100%;
+    display: flex;
+    gap: 16px; /* 保持与 message-row 一致的间距 */
+    margin-bottom: 10px;
+}
+
+/* 隐藏头像时的占位 */
+.avatar {
+    flex-shrink: 0; /* 防止头像被压缩 */
+    width: 36px;
+    height: 36px;
+    margin-top: 0; /* 对齐顶部 */
+}
+
+.message-bubble-container {
+    flex: 1; /* 占据剩余空间 */
+    min-width: 0; /* 防止 flex 子项溢出 */
+}
+
+/* 代码块样式微调 */
+.code-block {
+    font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+    font-size: 12px;
+    padding: 10px;
+    border-radius: 6px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    margin: 0;
+    max-height: 300px; /* 防止过长 */
+    overflow-y: auto;
+}
 
 </style>

@@ -73,7 +73,8 @@ public class ChatController {
         }
         chatMessages.add(new UserMessage(prompt));
         return Flux.create(sink -> {
-            generateResponse(client, chatMessages, tools, sink, sessionId, useMemory, message);
+            memoryService.addMessage(sessionId, new UserMessage(message));
+            generateResponse(client, chatMessages, tools, sink, sessionId);
         });
     }
 
@@ -82,9 +83,7 @@ public class ChatController {
             List<ChatMessage> messages,
             List<ToolSpecification> tools,
             FluxSink<String> sink,
-            String sessionId,
-            boolean useMemory,
-            String originalUserMessage
+            String sessionId
     ) {
         logger.info("Generating with {} tools", tools.size());
         client.generate(messages, tools, new StreamingResponseHandler<AiMessage>() {
@@ -99,6 +98,7 @@ public class ChatController {
                     // Tool Execution Logic
                     messages.add(aiMessage);
                     for (ToolExecutionRequest toolRequest : aiMessage.toolExecutionRequests()) {
+                        memoryService.addMessage(sessionId,aiMessage);
                         String toolName = toolRequest.name();
                         String args = toolRequest.arguments();
                         // 【关键修改】发送特殊标记的JSON字符串，包含完整的输入参数
@@ -117,14 +117,13 @@ public class ChatController {
                         // 为了避免特殊字符破坏流，这里可以考虑简单转义，或者直接发送文本
                         // 这里我们发送一个结果标记
                         sink.next(":::TOOL_OUTPUT_START:::\n" + result + "\n:::TOOL_OUTPUT_END:::\n");
-                        messages.add(ToolExecutionResultMessage.from(toolRequest, result));
+                        ToolExecutionResultMessage message=ToolExecutionResultMessage.from(toolRequest, result);
+                        messages.add(message);
+                        memoryService.addMessage(sessionId,message);
                     }
-                    generateResponse(client, messages, tools, sink, sessionId, useMemory, originalUserMessage);
+                    generateResponse(client, messages, tools, sink, sessionId);
                 } else {
-                    if (useMemory) {
-                        memoryService.addMessage(sessionId, new UserMessage(originalUserMessage));
-                        memoryService.addMessage(sessionId, aiMessage);
-                    }
+                    memoryService.addMessage(sessionId, aiMessage);
                     sink.complete();
                 }
             }

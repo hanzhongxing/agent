@@ -6,6 +6,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import dev.langchain4j.data.message.UserMessage;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
@@ -34,7 +35,7 @@ public class MemoryService extends BaseService{
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ConcurrentHashMap<String, List<ChatMessage>> sessionMessages = new ConcurrentHashMap<>();
 
-    private static final int MAX_MESSAGES = 50;
+    private static final int MAX_MESSAGES = 100;
 
     @PostConstruct
     public void init() {
@@ -49,7 +50,7 @@ public class MemoryService extends BaseService{
         List<ChatMessage> messages = sessionMessages.computeIfAbsent(sessionId, k -> new CopyOnWriteArrayList<>());
         messages.add(message);
         while (messages.size() > MAX_MESSAGES) {
-            messages.remove(0);
+            messages.removeFirst();
         }
         ChatSession session=sessionService.getSession(sessionId);
         if (session==null) {
@@ -105,8 +106,17 @@ public class MemoryService extends BaseService{
                         m.put("type", "user");
                         m.put("content", ((UserMessage) msg).singleText());
                     } else if (msg instanceof AiMessage) {
-                        m.put("type", "assistant");
-                        m.put("content", ((AiMessage) msg).text());
+                        AiMessage aiMsg = (AiMessage) msg;
+                        if (aiMsg.hasToolExecutionRequests()) {
+                            m.put("type", "assistant_tool_request");
+                            m.put("content", aiMsg.text());
+                        }else {
+                            m.put("type", "assistant");
+                            m.put("content",aiMsg.text());
+                        }
+                    }else if(msg instanceof ToolExecutionResultMessage){
+                        m.put("type", "tool");
+                        m.put("content", ((ToolExecutionResultMessage) msg).text());
                     }
                     sessionMsgs.add(m);
                 }
@@ -117,5 +127,4 @@ public class MemoryService extends BaseService{
             logger.error(e.getMessage(),e);
         }
     }
-
 }

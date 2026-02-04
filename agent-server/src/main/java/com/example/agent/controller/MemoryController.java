@@ -23,38 +23,35 @@ public class MemoryController {
     @Autowired
     private MemoryService memoryService;
 
+    // 修改返回泛型为 Object
     @GetMapping("/sessions/{sessionId}/messages")
-    public List<Map<String, String>> getMessages(@PathVariable String sessionId) {
+    public List<Map<String, Object>> getMessages(@PathVariable String sessionId) {
         List<ChatMessage> messages = memoryService.getMessages(sessionId);
         return messages.stream().map(msg -> {
-            Map<String, String> m = new HashMap<>();
-
+            Map<String, Object> m = new HashMap<>(); // 修改为 Object
             if (msg instanceof UserMessage) {
                 m.put("role", "user");
                 m.put("content", ((UserMessage) msg).singleText());
             } else if (msg instanceof ToolExecutionResultMessage) {
-                // 专门处理工具结果消息
                 ToolExecutionResultMessage toolMsg = (ToolExecutionResultMessage) msg;
                 m.put("role", "tool");
                 m.put("toolName", toolMsg.toolName());
                 m.put("output", toolMsg.text());
-                m.put("content", "Tool execution completed."); // 简略显示的文本
+                m.put("content", "Tool execution completed.");
             } else if (msg instanceof AiMessage) {
                 AiMessage aiMsg = (AiMessage) msg;
                 if (aiMsg.hasToolExecutionRequests()) {
-                    // 这是 AI 发起的工具调用请求
                     m.put("role", "assistant_tool_request");
-                    // 获取工具调用的详细参数
                     var requests = aiMsg.toolExecutionRequests().stream().map(req -> {
                         Map<String, String> toolInfo = new HashMap<>();
                         toolInfo.put("name", req.name());
-                        toolInfo.put("arguments", req.arguments());
+                        toolInfo.put("arguments", req.arguments()); // 参数保持原样
                         return toolInfo;
                     }).toList();
-                    m.put("toolCalls", requests.toString());
+                    // 直接放入 List 对象，不再 toString()
+                    m.put("toolCalls", requests);
                     m.put("content", "Calling tools...");
                 } else {
-                    // 普通 AI 回复
                     m.put("role", "assistant");
                     m.put("content", aiMsg.text());
                 }

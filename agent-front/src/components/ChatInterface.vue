@@ -721,6 +721,7 @@ const isEditingMcp = computed(() => !!newMcp.value.id);
 const currentMcpId = ref(null);
 const mcpTools=ref([]);
 const openSetting = () => {
+   activeTab.value = 'model';
    showSettingsDialog.value = true;
    loadModels();
 };
@@ -1295,7 +1296,7 @@ watch(activeRagTab, (val) => {
 
 watch(activeTab, (val) => {
   if (val === 'model') loadRagFiles();
-  if (val === 'rag') loadRagFiles();
+  if (val === 'rag'){ activeRagTab.value='manage'; loadRagFiles(); }
   if (val === 'mcp') loadMcps();
   if (val === 'prompt') loadPrompts();
 });

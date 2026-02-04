@@ -192,7 +192,7 @@
       <div class="dialog-layout">
         <div class="settings-sidebar">
           <div 
-            v-for="tab in ['model','rag','mcp']" 
+            v-for="tab in ['model','rag','mcp','prompt']" 
             :key="tab" 
             :class="['settings-tab', { active: (activeTab === tab || activeTab.indexOf(tab) > -1)}]" 
             @click="activeTab = tab"
@@ -200,10 +200,12 @@
             <el-icon v-if="tab === 'model'"><Menu/></el-icon>
             <el-icon v-else-if="tab==='rag'"><DocumentAdd/></el-icon>
             <el-icon v-else-if="tab==='mcp'"><Connection /></el-icon>
+            <el-icon v-else-if="tab==='prompt'"><MagicStick /></el-icon>
 
             <span v-if="tab==='model'">Model</span>
             <span v-else-if="tab==='rag'">RAG</span>
             <span v-else-if="tab==='mcp'">MCP</span>
+            <span v-else-if="tab==='prompt'">Prompts</span>
           </div>
         </div>
 
@@ -443,6 +445,81 @@
                     <el-button @click="activeTab = 'mcp'" size="large" plain>Cancel</el-button>
                 </div>
             </div>
+
+            <!-- SYSTEM PROMPT LIST TAB (新增) -->
+            <div v-else-if="activeTab === 'prompt'" key="prompt" class="settings-content">
+              <div class="content-header">
+                <h3 style="display: inline-block">System Prompts</h3>
+                <p>Define the persona and behavior of your agent.</p>
+                <el-button type="primary" size="small" style="float: right; margin-top: -30px" @click="startAddPrompt" class="gradient-btn">New Prompt</el-button>
+              </div>
+              <div class="table-container">
+                <el-table :data="promptList" style="width: 100%" height="100%" class="custom-table">
+                  <el-table-column prop="name" label="Name" width="100" show-overflow-tooltip>
+                     <template #default="scope">
+                        <strong>{{ scope.row.name }}</strong>
+                     </template>
+                  </el-table-column>
+                  <el-table-column prop="content" label="Preview" show-overflow-tooltip />
+                  <el-table-column label="Status" width="90" align="center">
+                    <template #default="scope">
+                       <el-switch 
+                          v-model="scope.row.active" 
+                          :loading="scope.row.loading"
+                          active-color="#13ce66"
+                          inactive-color="#ff4949"
+                          @change="activatePrompt(scope.row)"
+                       />
+                       <span style="font-size: 11px; margin-left: 5px; color: #666">{{ scope.row.active ? 'On' : 'Off' }}</span>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="Actions" width="80" align="center">
+                    <template #default="scope">
+                      <el-button-group>
+                        <el-tooltip content="Edit" placement="top">
+                          <el-button circle size="small" type="primary" @click="editPrompt(scope.row)"><el-icon><EditPen /></el-icon></el-button>
+                        </el-tooltip>
+                        <el-tooltip content="Delete" placement="top">
+                          <el-button circle size="small" type="danger" @click="deletePrompt(scope.row.id)"><el-icon><DeleteFilled /></el-icon></el-button>
+                        </el-tooltip>
+                      </el-button-group>
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </div>
+            </div>
+
+            <!-- SYSTEM PROMPT ADD/EDIT TAB (新增) -->
+            <div v-else-if="activeTab === 'addprompt'" key="addprompt" class="settings-content">
+               <div class="content-header">
+                <h3>{{ isEditingPrompt ? 'Edit Prompt' : 'New Prompt' }}</h3>
+                <p>Set instructions for the AI.</p>
+              </div>
+              <el-form label-position="top" class="premium-form" style="flex:1; display:flex; flex-direction:column">
+                <el-form-item label="Prompt Name">
+                  <el-input v-model="newPrompt.name" placeholder="e.g. Java Coding Expert" prefix-icon="Edit" />
+                </el-form-item>
+                
+                <el-form-item label="Content (Instructions)" style="flex:1; display:flex; flex-direction:column">
+                   <!-- 使 textarea 充满剩余空间 -->
+                  <el-input 
+                    type="textarea" 
+                    v-model="newPrompt.content" 
+                    placeholder="You are a helpful assistant..." 
+                    :rows="12"
+                    resize="none"
+                    class="custom-textarea full-height"
+                  />
+                </el-form-item>
+              </el-form>
+              <div class="footer-actions">
+                 <el-button @click="activeTab = 'prompt'" size="large" plain>Cancel</el-button>
+                 <el-button type="primary" @click="savePrompt" size="large" class="gradient-btn">
+                   {{ isEditingPrompt ? 'Update Prompt' : 'Save Prompt' }}
+                 </el-button>
+              </div>
+            </div>
+
           </transition>
         </div>
       </div>
@@ -460,7 +537,7 @@ import {
   ChatDotRound, Position, Search, Menu, Plus, Edit,
   Link, Key, PriceTag,View, EditPen,DeleteFilled,
   ChatLineRound, Close, UploadFilled, Loading,
-  Connection, Monitor,ArrowRight
+  Connection, Monitor,ArrowRight,MagicStick
 } from '@element-plus/icons-vue';
 
 // State
@@ -488,6 +565,10 @@ const isSidebarCollapsed = ref(false);
 
 const typewriterQueue = ref([]); // 存放待打印的字符任务: { target: Object, key: String, char: String }
 const isTyping = ref(false);     // 标记打字机循环是否正在运行
+
+const promptList = ref([]);
+const newPrompt = ref({ name: '', content: '', active: false });
+const isEditingPrompt = computed(() => !!newPrompt.value.id);
 
 // --- 新增：打字机处理循环 ---
 const processTypewriter = () => {
@@ -642,7 +723,6 @@ const mcpTools=ref([]);
 const openSetting = () => {
    showSettingsDialog.value = true;
    loadModels();
-   loadMcps();
 };
 
 // execute MCP tool
@@ -1067,6 +1147,90 @@ const sendMessage = async () => {
   }
 };
 
+const loadPrompts = async () => {
+  try {
+    const res = await chatApi.loadPrompts();
+    // axios 直接返回 data，或者根据你的拦截器调整
+    promptList.value = res; 
+  } catch (e) {
+    ElMessage.error("Failed to load prompts");
+  }
+};
+
+// 2. 准备添加
+const startAddPrompt = () => {
+    newPrompt.value = { name: '', content: '', active: false };
+    activeTab.value = 'addprompt';
+};
+
+// 3. 准备编辑
+const editPrompt = (row) => {
+    newPrompt.value = { ...row };
+    activeTab.value = 'addprompt';
+};
+
+// 4. 保存 (新增或更新)
+const savePrompt = async () => {
+    if (!newPrompt.value.name || !newPrompt.value.content) {
+        ElMessage.warning("Name and Content are required");
+        return;
+    }
+    try {
+        if (newPrompt.value.id) {
+            await chatApi.updatePrompt(newPrompt.value.id, newPrompt.value);
+            ElMessage.success("Prompt updated");
+        } else {
+            await chatApi.savePrompt(newPrompt.value);
+            ElMessage.success("Prompt created");
+        }
+        await loadPrompts();
+        activeTab.value = 'prompt';
+    } catch (e) {
+        ElMessage.error("Failed to save prompt");
+    }
+};
+
+// 5. 删除
+const deletePrompt = async (id) => {
+    try {
+        await chatApi.deletePrompt(id);
+        ElMessage.success("Prompt deleted");
+        await loadPrompts();
+    } catch (e) {
+        ElMessage.error("Failed to delete prompt");
+    }
+};
+
+// 6. 激活/切换
+const activatePrompt = async (row) => {
+    if (row.active) {
+        promptList.value.forEach(p => {
+            if (p.id !== row.id) p.active = false;
+        });
+        
+        row.loading = true; // 加个简单的 loading 状态防止连点
+        try {
+            await chatApi.activatePrompt(row.id);
+            ElMessage.success(`Activated: ${row.name}`);
+        } catch (e) {
+            row.active = !row.active; // 回滚
+            ElMessage.error("Failed to activate");
+        } finally {
+            row.loading = false;
+            await loadPrompts(); // 重新加载确保状态同步
+        }
+    } else {
+        try {
+            row.active = false;
+            await chatApi.updatePrompt(row.id, row);
+             ElMessage.success(`Deactivated: ${row.name}`);
+        } catch(e) {
+             row.active = true;
+             ElMessage.error("Failed to deactivate");
+        }
+    }
+};
+
 const loadRagFiles = async () => {
   ragFilesLoading.value = true;
   try {
@@ -1130,12 +1294,10 @@ watch(activeRagTab, (val) => {
 });
 
 watch(activeTab, (val) => {
-  if (val==='rag') {
-    loadRagFiles();
-  }
-  if (val==='mcp') {
-    loadMcps();
-  }
+  if (val === 'model') loadRagFiles();
+  if (val === 'rag') loadRagFiles();
+  if (val === 'mcp') loadMcps();
+  if (val === 'prompt') loadPrompts();
 });
 
 const formatSize = (bytes) => {
@@ -1550,7 +1712,7 @@ const formatSize = (bytes) => {
 }
 
 .settings-sidebar {
-    width: 200px;
+  width: 20%;
   border-right: 1px solid #e2e8f0;
   padding: 20px 0;
 }
@@ -1591,7 +1753,7 @@ const formatSize = (bytes) => {
 }
 
 .content-header {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .content-header h3 {
@@ -2061,6 +2223,14 @@ const formatSize = (bytes) => {
   border-radius: 6px;
   overflow-x: auto;
 }
+.full-height{
+  height: 200px;
+}
 
+.full-height :deep(.el-textarea__inner) {
+    height: 100%;
+    font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+    line-height: 1.5;
+}
 
 </style>

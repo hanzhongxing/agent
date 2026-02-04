@@ -1,10 +1,8 @@
 package com.example.agent.controller;
 
 import com.example.agent.model.ModelInfo;
-import com.example.agent.service.MemoryService;
-import com.example.agent.service.ModelService;
-import com.example.agent.service.RagService;
-import com.example.agent.service.McpService;
+import com.example.agent.model.SystemPrompt;
+import com.example.agent.service.*;
 import com.example.agent.util.StringUtils;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.agent.tool.ToolSpecification;
@@ -36,13 +34,16 @@ public class ChatController {
     private RagService ragService;
 
     @Autowired
-    private MemoryService memoryService;
+    private McpService mcpService;
 
     @Autowired
     private ModelService modelService;
 
     @Autowired
-    private McpService mcpService;
+    private MemoryService memoryService;
+
+    @Autowired // 注入新的服务
+    private SystemPromptService systemPromptService;
 
     @PostMapping(produces = "text/event-stream")
     public Flux<String> chat(@RequestBody Map<String, Object> request) {
@@ -69,10 +70,18 @@ public class ChatController {
             }
         }
         final List<ChatMessage> chatMessages = new ArrayList<>();
+
+        SystemPrompt activePrompt = systemPromptService.getActivePrompt();
+        if (activePrompt != null && StringUtils.hasText(activePrompt.getContent())) {
+            chatMessages.add(new SystemMessage(activePrompt.getContent()));
+        }
+
         if (useMemory) {
             chatMessages.addAll(memoryService.getMessages(sessionId));
         }
+
         chatMessages.add(new UserMessage(prompt));
+
         return Flux.create(sink -> {
             memoryService.addMessage(sessionId, new UserMessage(message));
             generateResponse(client, chatMessages, tools, sink, sessionId);

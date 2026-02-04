@@ -153,5 +153,30 @@ export const chatApi = {
     async executeMcpTool(id, name, inputs) {
          const response = await axios.post(`${API_URL}/mcp/tool/call/${id}`, {name,inputs });
         return response.data;
-    }
+    },
+
+    async loadPrompts() {
+         const response = await axios.get(`${API_URL}/prompts`);
+        return response.data;
+    },
+
+    async savePrompt(prompt) {
+         const response = await axios.post(`${API_URL}/prompts`, prompt);
+        return response.data;
+    },
+
+    async updatePrompt(id, prompt) {
+         const response = await axios.put(`${API_URL}/prompts/${id}`, prompt);
+        return response.data;
+    },
+
+    async deletePrompt(id) {
+         const response = await axios.delete(`${API_URL}/prompts/${id}`);
+        return response.data;
+    },
+
+    async activatePrompt(id) {
+         const response = await axios.post(`${API_URL}/prompts/${id}/activate`);
+        return response.data;
+    },
 };

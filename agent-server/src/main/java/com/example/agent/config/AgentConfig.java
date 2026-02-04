@@ -37,6 +37,12 @@ public class AgentConfig {
     @Value("${agent.mcp.file}")
     private String mcpFile;
 
+    @Value("${agent.prompt.folder}")
+    private String promptFolder;
+
+    @Value("${agent.prompt.file}")
+    private String promptFile;
+
     public String getLlmFilePath() {
         return AgentFileUtil.getFilePath(basePath, llmFolder, llmFile);
     }
@@ -55,5 +61,9 @@ public class AgentConfig {
 
     public String getMcpFilePath() {
         return AgentFileUtil.getFilePath(basePath, mcpFolder, mcpFile);
+    }
+
+    public String getSystemPromptFilePath() {
+        return AgentFileUtil.getFilePath(basePath, promptFolder, promptFile);
     }
 }

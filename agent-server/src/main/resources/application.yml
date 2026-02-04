@@ -24,3 +24,6 @@ agent:
   mcp:
     folder: mcp
     file: mcp_conf.json
+  prompt:
+    folder: prompt
+    file: system_prompt.json

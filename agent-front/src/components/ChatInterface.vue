@@ -478,6 +478,60 @@ const ragFilesLoading = ref(false);
 const chatHistory = ref(null);
 const isSidebarCollapsed = ref(false);
 
+const typewriterQueue = ref([]); // 存放待打印的字符任务: { target: Object, key: String, char: String }
+const isTyping = ref(false);     // 标记打字机循环是否正在运行
+
+// --- 新增：打字机处理循环 ---
+const processTypewriter = () => {
+  if (typewriterQueue.value.length > 0) {
+    isTyping.value = true;
+    
+    // 动态调整速度：如果堆积太多，打字速度加快，防止消息积压太久
+    const queueLength = typewriterQueue.value.length;
+    const batchSize = queueLength > 50 ? (queueLength > 200 ? 5 : 2) : 1; 
+    
+    // 批量处理字符（requestAnimationFrame 约为 16ms 一帧，逐字打印可能太慢，稍作批量处理更自然）
+    for (let i = 0; i < batchSize && typewriterQueue.value.length > 0; i++) {
+        const task = typewriterQueue.value.shift();
+        if (task && task.target) {
+            // 将字符追加到目标对象的指定字段 (content 或 output)
+            task.target[task.key] += task.char;
+            
+            // 只要开始有内容，就取消 loading 状态
+            if (task.target.loading) {
+                task.target.loading = false;
+            }
+        }
+    }
+
+    scrollToBottom();
+
+    // 继续下一帧
+    requestAnimationFrame(processTypewriter);
+  } else {
+    isTyping.value = false;
+  }
+};
+
+// 辅助函数：将文本推入队列
+const pushToTypewriter = (targetObj, keyName, text) => {
+    if (!text) return;
+    // 将字符串拆分为字符数组
+    const chars = text.split('');
+    chars.forEach(char => {
+        typewriterQueue.value.push({
+            target: targetObj,
+            key: keyName,
+            char: char
+        });
+    });
+    // 如果打字机未启动，则启动
+    if (!isTyping.value) {
+        processTypewriter();
+    }
+};
+// --------------------------
+
 // 辅助函数：决定是否显示头像 (需求2)
 const showAvatar = (msg, index) => {
     if (msg.role === 'assistant' || msg.role === 'user') {
@@ -904,7 +958,7 @@ const sendMessage = async () => {
     
     // 用于工具调用的临时状态
     let isHandlingTool = false;
-    let toolBuffer = '';
+    let toolBuffer = ''; // 用于拼接工具 JSON 的 buffer (JSON 需要完整才能解析，不适合打字机)
     let currentToolMsg = null;
 
     await chatApi.sendMessage(
@@ -914,60 +968,74 @@ const sendMessage = async () => {
         selectedModel.value, 
         session.id,
         (token) => {
-            // 检查特殊标记
+            // 1. 处理工具开始标记（控制指令：立即执行，不进打字机队列）
             if (token.includes(':::TOOL_START:::')) {
                 isHandlingTool = true;
-                // 从 assistant 消息切换到 tool 消息
-                // 如果当前的 assistant 消息是空的，可以复用，否则新建
-                if (!currentMsg.content.trim()) {
-                    session.messages.pop(); // 移除空的 assistant
+                
+                // 如果当前的 assistant 消息是空的，移除它（避免界面留白）
+                // 注意：这里检查的是 content，但因为 content 可能是异步填充的，
+                // 我们检查 typewriterQueue 里是否还有属于 currentMsg 的内容会更严谨，
+                // 但简单起见，如果 currentMsg.content 为空且队列里没有它的任务，则移除。
+                if (!currentMsg.content.trim() && !typewriterQueue.value.some(t => t.target === currentMsg)) {
+                    session.messages.pop(); 
                 }
                 
-                // 创建新的工具消息卡片
                 currentToolMsg = {
                     role: 'tool',
-                    isTool: true, // 确保标记为工具
-                    expanded: true, // 实时流默认展开
+                    isTool: true,
+                    expanded: true,
                     toolName: 'Detecting...',
-                    args: '', // 这里的 args 稍后会被填充 JSON 字符串
+                    args: '', 
                     output: ''
                 };
                 session.messages.push(currentToolMsg);
                 
-                // 解析 JSON 参数 (token 可能包含部分 json)
-                const jsonPart = token.split(':::TOOL_START:::')[1].split(':::TOOL_END:::')[0];
-                try {
-                    const info = JSON.parse(jsonPart);
-                    currentToolMsg.toolName = info.name;
-                    currentToolMsg.args = JSON.stringify(info.args, null, 2);
-                } catch(e) {
-                    currentToolMsg.toolName = 'Processing...';
+                // 解析 JSON 参数
+                // 注意：token 包含 :::TOOL_START:::{json}:::TOOL_END:::
+                // 后端逻辑中这通常是一个完整的包发过来的，所以直接解析即可
+                const parts = token.split(':::TOOL_START:::');
+                if (parts.length > 1) {
+                    const jsonPart = parts[1].split(':::TOOL_END:::')[0];
+                    try {
+                        const info = JSON.parse(jsonPart);
+                        currentToolMsg.toolName = info.name;
+                        // 参数通常也是一次性展示，不需要打字机效果，直接赋值
+                        currentToolMsg.args = JSON.stringify(info.args, null, 2);
+                    } catch(e) {
+                        currentToolMsg.toolName = 'Processing...';
+                    }
                 }
+                scrollToBottom();
                 
-            } else if (token.includes(':::TOOL_OUTPUT_START:::')) {
-               // 准备接收 Output
+            } 
+            // 2. 处理工具输出开始（控制指令）
+            else if (token.includes(':::TOOL_OUTPUT_START:::')) {
                if (currentToolMsg) {
                    currentToolMsg.output = ''; 
                }
-            } else if (token.includes(':::TOOL_OUTPUT_END:::')) {
+            } 
+            // 3. 处理工具输出结束（控制指令）
+            else if (token.includes(':::TOOL_OUTPUT_END:::')) {
                isHandlingTool = false;
                if (currentToolMsg) {
-                   currentToolMsg.expanded = false; // 完成后折叠
+                   currentToolMsg.expanded = false; 
                }
-               // 准备接收后续的 AI 解释
+               // 准备接收后续的 AI 解释，创建新的消息气泡
                currentMsg = { role: 'assistant', content: '' ,loading: true};
                session.messages.push(currentMsg);
-            } else {
-                // 普通内容处理
+               scrollToBottom();
+            } 
+            // 4. 普通内容处理（文本内容：进入打字机队列）
+            else {
                 if (isHandlingTool && currentToolMsg) {
-                    // 这里可能会收到 Output 的流
-                    currentToolMsg.output += token;
+                    // 工具的 Output 结果，使用打字机效果（如果觉得工具输出太快不需要特效，也可以直接 +=）
+                    // currentToolMsg.output += token; 
+                    pushToTypewriter(currentToolMsg, 'output', token);
                 } else {
-                    currentMsg.loading = false;
-                    currentMsg.content += token;
+                    // 普通 AI 回复，使用打字机效果
+                    pushToTypewriter(currentMsg, 'content', token);
                 }
             }
-            scrollToBottom();
         }
     );
   } catch (error) {
@@ -975,7 +1043,8 @@ const sendMessage = async () => {
     session.messages.push({ role: 'assistant', content: 'Error: ' + error.message });
   } finally {
     loading.value = false;
-    scrollToBottom();
+    // 注意：这里不要立即 scrollToBottom，因为打字机可能还在跑。
+    // processTypewriter 内部会负责滚动。
   }
 };
 

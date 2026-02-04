@@ -485,14 +485,10 @@ const isSidebarCollapsed = ref(false);
 
 // 辅助函数：决定是否显示头像 (需求2)
 const showAvatar = (msg, index) => {
-    if (msg.role === 'user') return true;
-    if (msg.isTool) return false; // 工具卡片不显示头像
-    
-    // 如果是 assistant 消息
-    if (msg.role === 'assistant') {
+    if (msg.role === 'assistant' || msg.role === 'user') {
         return true;
     }
-    return true;
+    return false;
 };
 
 // 新增辅助函数

@@ -92,33 +92,6 @@ public class McpService extends BaseService{
         }
     }
 
-    /**
-     * Fetches all tool specifications from all enabled MCP servers.
-     */
-    public List<ToolSpecification> getEnabledTools() {
-        List<ToolSpecification> specs = new ArrayList<>();
-        for (McpInfo config : mcpInfos) {
-            if (config.isEnabled()) {
-                try {
-                    String toolsJson = restClient.get()
-                            .uri(config.getBaseUrl() + "/tools/list")
-                            .retrieve()
-                            .body(String.class);
-
-                    if (toolsJson != null) {
-                        List<ToolSpecification> serverTools = objectMapper.readValue(
-                                toolsJson, new TypeReference<List<ToolSpecification>>() {});
-                        specs.addAll(serverTools);
-                    }
-                } catch (Exception e) {
-                    logger.error(e.getMessage(),e);
-                    logger.error("Failed to rest fetch tools from MCP: " + config.getName(), e);
-                }
-            }
-        }
-        return specs;
-    }
-
     public List<ToolSpecification> getAllTools() {
         List<ToolSpecification> specs = new ArrayList<>();
         for (McpInfo config : mcpInfos) {

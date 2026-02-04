@@ -58,7 +58,7 @@ public class ChatController {
             return Flux.error(new IllegalArgumentException("Model configuration not found for ID: " + modelId));
         }
         StreamingChatLanguageModel client = createStreamingChatModel(config);
-        List<ToolSpecification> tools = mcpService.getEnabledTools();
+        List<ToolSpecification> tools = mcpService.getAllTools();
         String prompt = message;
         if (useRag) {
             List<TextSegment> docs = ragService.search(message);

@@ -1717,7 +1717,7 @@ const formatSize = (bytes) => {
   .tool-inputs .input-item .input-desc {
     flex-basis: 100%; /* Make description take full width */
     font-size: 12px;
-    color: #9ca3baf;
+    color: #9ca3ba;
     margin-top: 5px;
     margin-bottom: 0;
   }

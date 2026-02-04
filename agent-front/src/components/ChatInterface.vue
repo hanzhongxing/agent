@@ -86,9 +86,7 @@
              </div>
           </div>
 
-           <!-- 消息循环 -->
           <div v-for="(msg, index) in currentSession.messages" :key="index" :class="['message-row', getMessageClass(msg)]">
-             
              <!-- Avatar 逻辑优化：需求2 -->
              <div class="avatar" :style="{ visibility: showAvatar(msg, index) ? 'visible' : 'hidden' }">
                <el-avatar :size="36" :src="msg.role === 'user' ? '/user.png' : '/robot-avatar.png'" :class="msg.role" v-if="showAvatar(msg, index)">
@@ -492,13 +490,6 @@ const showAvatar = (msg, index) => {
     
     // 如果是 assistant 消息
     if (msg.role === 'assistant') {
-        // 如果上一条消息是工具调用，则不显示头像，视觉上延续工具调用的上下文
-        if (index > 0) {
-            const prevMsg = currentSession.value.messages[index - 1];
-            if (prevMsg.isTool) {
-                return false;
-            }
-        }
         return true;
     }
     return true;

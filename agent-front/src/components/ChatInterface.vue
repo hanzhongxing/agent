@@ -95,10 +95,11 @@
                <!-- 占位符，保持对齐 -->
                <div v-else style="width: 36px; height: 36px;"></div>
              </div>
-
+             <div v-if="msg.loading && msg.role === 'assistant'" class="typing-indicator">
+               <span></span><span></span><span></span>
+             </div>
              <!-- 消息气泡容器 -->
-             <div class="message-bubble-container">
-               
+             <div v-else class="message-bubble-container">
                <!-- 1. 普通文本消息 -->
                <div v-if="msg.role === 'user' || (msg.role === 'assistant' && !msg.isTool)" 
                     class="message-bubble" 
@@ -144,13 +145,6 @@
              </div>
           </div>
 
-          <div v-if="loading" class="message-row assistant">
-             <div class="avatar"><el-avatar :size="36" src="/robot-avatar.png"><el-icon><Cpu /></el-icon></el-avatar></div>
-             <div class="typing-indicator">
-               <span></span><span></span><span></span>
-             </div>
-          </div>
-
         <div class="input-section">
            <div class="input-wrapper">
              <el-input 
@@ -184,6 +178,7 @@
       </div>
       </div>
     </div>
+
     <!-- Settings Dialog -->
     <el-dialog v-model="showSettingsDialog" title="Configuration" width="800px" class="premium-dialog" center align-center>
       <div class="dialog-layout">
@@ -904,7 +899,7 @@ const sendMessage = async () => {
 
   try {
     // 当前正在构建的消息
-    let currentMsg = { role: 'assistant', content: '' };
+    let currentMsg = { role: 'assistant', content: '' ,loading: true};
     session.messages.push(currentMsg);
     
     // 用于工具调用的临时状态
@@ -960,7 +955,7 @@ const sendMessage = async () => {
                    currentToolMsg.expanded = false; // 完成后折叠
                }
                // 准备接收后续的 AI 解释
-               currentMsg = { role: 'assistant', content: '' };
+               currentMsg = { role: 'assistant', content: '' ,loading: true};
                session.messages.push(currentMsg);
             } else {
                 // 普通内容处理
@@ -968,6 +963,7 @@ const sendMessage = async () => {
                     // 这里可能会收到 Output 的流
                     currentToolMsg.output += token;
                 } else {
+                    currentMsg.loading = false;
                     currentMsg.content += token;
                 }
             }

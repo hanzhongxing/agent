@@ -5,6 +5,7 @@ import com.example.agent.service.MemoryService;
 import com.example.agent.service.ModelService;
 import com.example.agent.service.RagService;
 import com.example.agent.service.McpService;
+import com.example.agent.util.StringUtils;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.data.message.*;
@@ -95,17 +96,13 @@ public class ChatController {
             public void onComplete(Response<AiMessage> response) {
                 AiMessage aiMessage = response.content();
                 if (aiMessage.hasToolExecutionRequests()) {
-                    // Tool Execution Logic
                     messages.add(aiMessage);
                     for (ToolExecutionRequest toolRequest : aiMessage.toolExecutionRequests()) {
                         memoryService.addMessage(sessionId,aiMessage);
                         String toolName = toolRequest.name();
                         String args = toolRequest.arguments();
-                        // 【关键修改】发送特殊标记的JSON字符串，包含完整的输入参数
-                        // 格式：:::TOOL_START:::{JSON Data}:::TOOL_END:::
                         String toolStartJson = String.format("{\"name\":\"%s\", \"args\":%s}", toolName, args.replace("\n", ""));
                         sink.next("\n:::TOOL_START:::" + toolStartJson + ":::TOOL_END:::\n");
-
                         String result = "Error: Tool execution failed.";
                         try {
                             result = mcpService.executeTool(toolName, args);
@@ -113,13 +110,17 @@ public class ChatController {
                             logger.error("Error executing MCP tool {}", toolName, e);
                             result = "Error executing tool: " + e.getMessage();
                         }
-                        // 【关键修改】发送结果，前端拿到后更新上面的卡片
-                        // 为了避免特殊字符破坏流，这里可以考虑简单转义，或者直接发送文本
-                        // 这里我们发送一个结果标记
                         sink.next(":::TOOL_OUTPUT_START:::\n" + result + "\n:::TOOL_OUTPUT_END:::\n");
                         ToolExecutionResultMessage message=ToolExecutionResultMessage.from(toolRequest, result);
                         messages.add(message);
                         memoryService.addMessage(sessionId,message);
+                        String userMsg = StringUtils.extractValue(message.text(), "userMsg");
+                        if (StringUtils.hasText(userMsg)) {
+                            sink.next(userMsg);
+                            sink.complete();
+                            memoryService.addMessage(sessionId,new AiMessage(userMsg));
+                            return;
+                        }
                     }
                     generateResponse(client, messages, tools, sink, sessionId);
                 } else {

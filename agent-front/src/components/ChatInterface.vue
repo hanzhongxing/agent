@@ -132,10 +132,10 @@
                         <div class="section-label">Output</div>
                         
                         <!-- 如果检测到 HTML/XML，渲染 DOM -->
-                        <div v-if="isHtmlOrXml(msg.output)" class="xml-render-block" v-html="msg.output"></div>
+                        <!-- <div  class="xml-render-block" v-html="msg.output"></div> -->
                         
                         <!-- 否则显示代码块 -->
-                        <pre v-else class="code-block xml">{{ msg.output || msg.content }}</pre>
+                        <pre class="code-block xml">{{ msg.output || msg.content }}</pre>
                       </div>
                     </div>
                   </el-collapse-transition>

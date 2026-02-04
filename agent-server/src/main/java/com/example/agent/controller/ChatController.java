@@ -98,6 +98,7 @@ public class ChatController {
                 if (aiMessage.hasToolExecutionRequests()) {
                     messages.add(aiMessage);
                     for (ToolExecutionRequest toolRequest : aiMessage.toolExecutionRequests()) {
+                        logger.info("toolRequest:{}",toolRequest);
                         memoryService.addMessage(sessionId,aiMessage);
                         String toolName = toolRequest.name();
                         String args = toolRequest.arguments();
@@ -112,6 +113,7 @@ public class ChatController {
                         }
                         sink.next(":::TOOL_OUTPUT_START:::\n" + result + "\n:::TOOL_OUTPUT_END:::\n");
                         ToolExecutionResultMessage message=ToolExecutionResultMessage.from(toolRequest, result);
+                        logger.info("message:{}",message);
                         messages.add(message);
                         memoryService.addMessage(sessionId,message);
                         String userMsg = StringUtils.extractValue(message.text(), "userMsg");

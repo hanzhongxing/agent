@@ -101,9 +101,17 @@
              <!-- 消息气泡容器 -->
              <div v-else class="message-bubble-container">
                <!-- 1. 普通文本消息 -->
-               <div v-if="msg.role === 'user' || (msg.role === 'assistant' && !msg.isTool)" 
-                    class="message-bubble" 
-                    v-html="renderContent(msg.content)">
+               <div v-if="msg.role === 'user' || (msg.role === 'assistant' && !msg.isTool)"  class="message-bubble">
+                <!-- 分支 1: 如果是 HTML/XML，使用 v-html 渲染 DOM -->
+                <div v-if="isHtmlOrXml(msg.content)" 
+                      v-html="msg.content" 
+                      class="xml-content">
+                </div>
+
+                <!-- 分支 2: 如果是普通文本，使用插值渲染（无抖动，且支持 pre-wrap 换行） -->
+                <div v-else>
+                  {{ msg.content }}
+                </div>
                </div>
 
                <!-- 2. 工具调用过程展示 (Tool Card) -->
@@ -486,27 +494,31 @@ const processTypewriter = () => {
   if (typewriterQueue.value.length > 0) {
     isTyping.value = true;
     
-    // 动态调整速度：如果堆积太多，打字速度加快，防止消息积压太久
     const queueLength = typewriterQueue.value.length;
-    const batchSize = queueLength > 50 ? (queueLength > 200 ? 5 : 2) : 1; 
     
-    // 批量处理字符（requestAnimationFrame 约为 16ms 一帧，逐字打印可能太慢，稍作批量处理更自然）
+    let batchSize = 1;
+    const nextTask = typewriterQueue.value[0];
+    const isRenderingHtml = nextTask && nextTask.target && isHtmlOrXml(nextTask.target[nextTask.key]);
+
+    if (isRenderingHtml) {
+        batchSize = 10; 
+    } else {
+        batchSize = queueLength > 100 ? 5 : (queueLength > 20 ? 2 : 1);
+    }
+
     for (let i = 0; i < batchSize && typewriterQueue.value.length > 0; i++) {
         const task = typewriterQueue.value.shift();
         if (task && task.target) {
-            // 将字符追加到目标对象的指定字段 (content 或 output)
             task.target[task.key] += task.char;
-            
-            // 只要开始有内容，就取消 loading 状态
             if (task.target.loading) {
                 task.target.loading = false;
             }
         }
     }
 
-    scrollToBottom();
+    // 智能滚动：不强制，只有原本在底部时才滚
+    scrollToBottom(false);
 
-    // 继续下一帧
     requestAnimationFrame(processTypewriter);
   } else {
     isTyping.value = false;
@@ -594,13 +606,14 @@ const getToolName = (msg) => {
     return 'Unknown Tool';
 };
 
-// 检测是否为 XML/HTML (需求3)
 const isHtmlOrXml = (content) => {
     if (!content || typeof content !== 'string') return false;
     const trimmed = content.trim();
-    // 简单判断：以 < 开头且包含 >，或者包含明显的 xml 标签
-    return (trimmed.startsWith('<') && trimmed.endsWith('>')) || 
-           (trimmed.includes('<?xml') || trimmed.includes('</div>') || trimmed.includes('</p>'));
+    
+    // 如果是纯文本流，通常不会以 < 开头
+    // 只要以 < 开头，我们就认为是 XML/HTML 模式，启用 v-html
+    // 这样可以避免打字过程中在“文本模式”和“HTML模式”之间反复横跳导致闪烁
+    return trimmed.startsWith('<') && (trimmed.includes('>') || trimmed.length < 50);
 }
 
 const currentSession = computed(() => {
@@ -882,7 +895,7 @@ const createNewSession = () => {
         useMemory: true,
         useRag: false
     };
-    sessions.value.push(newSession);
+    sessions.value.unshift(newSession);
     currentSessionId.value = newId;
     syncSession(newSession);
 };
@@ -928,10 +941,16 @@ const setInput = (text) => {
   inputMessage.value = text;
 };
 
-const scrollToBottom = async () => {
+const scrollToBottom = async (force = false) => {
   await nextTick();
   if (chatHistory.value) {
-    chatHistory.value.scrollTop = chatHistory.value.scrollHeight;
+    const el = chatHistory.value;
+    // 判断当前是否接近底部 (容差 100px)
+    // 如果是强制滚动 (force=true) 或者 用户已经在底部范围，则滚动
+    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+    if (force || isAtBottom) {
+      el.scrollTop = el.scrollHeight;
+    }
   }
 };
 
@@ -949,7 +968,8 @@ const sendMessage = async () => {
   session.messages.push({ role: 'user', content: userMsg });
   inputMessage.value = '';
   loading.value = true;
-  await scrollToBottom();
+    // 发送时强制滚到底部
+  await scrollToBottom(true); 
 
   try {
     // 当前正在构建的消息
@@ -1043,8 +1063,7 @@ const sendMessage = async () => {
     session.messages.push({ role: 'assistant', content: 'Error: ' + error.message });
   } finally {
     loading.value = false;
-    // 注意：这里不要立即 scrollToBottom，因为打字机可能还在跑。
-    // processTypewriter 内部会负责滚动。
+    scrollToBottom(false); 
   }
 };
 
@@ -1354,6 +1373,9 @@ const formatSize = (bytes) => {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  /* 新增：防止内容插入时的视口跳动 */
+  overflow-anchor: auto !important; 
+  /* 新增：平滑滚动，但在JS高频控制时设为 auto 可能更好，这里保持默认即可 */
 }
 
 /* Empty State */
@@ -1416,6 +1438,11 @@ const formatSize = (bytes) => {
   font-size: 15px;
   line-height: 1.6;
   position: relative;
+   /* 新增：保留空白符和换行符，自动换行 */
+  white-space: pre-wrap; 
+  /* 新增：防止长单词撑开导致抖动 */
+  word-break: break-word; 
+  /* 移除：max-width: 100% (之前建议移除的，这里确认一下) */
 }
 
 .user .message-bubble {
@@ -2013,5 +2040,27 @@ const formatSize = (bytes) => {
     max-height: 300px; /* 防止过长 */
     overflow-y: auto;
 }
+
+/* 针对 XML/HTML 渲染区域的特殊处理 */
+.xml-content {
+  /* 防止未闭合的标签撑破布局 */
+  overflow-x: auto; 
+  /* 即使是 HTML，也尽量保留一点排版稳定性 */
+  min-height: 24px;
+}
+
+/* 确保 v-html 内部的元素样式正常 */
+.xml-content :deep(p) {
+  margin: 0 0 10px 0;
+}
+
+.xml-content :deep(pre) {
+  background: #2d2b55;
+  color: #fff;
+  padding: 10px;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
 
 </style>

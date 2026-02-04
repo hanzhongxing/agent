@@ -101,8 +101,14 @@ public class ChatController {
                     for (ToolExecutionRequest toolRequest : aiMessage.toolExecutionRequests()) {
                         String toolName = toolRequest.name();
                         String args = toolRequest.arguments();
-                        sink.next("\n[mcp tool: " + toolName + "]\n");
-                        String result = mcpService.executeTool(toolName, args);
+                        sink.next("TOOL_CALL_RESULT: [mcp tool: " + toolName + "]\n");
+                        String result = "Error: Tool execution failed.";
+                        try {
+                            result = mcpService.executeTool(toolName, args);
+                        } catch (Exception e) {
+                            logger.error("Error executing MCP tool {}", toolName, e);
+                            sink.next("Error executing tool: " + e.getMessage() + "\n");
+                        }
                         messages.add(ToolExecutionResultMessage.from(toolRequest, result));
                     }
                     generateResponse(client, messages, tools, sink, sessionId, useMemory, originalUserMessage);

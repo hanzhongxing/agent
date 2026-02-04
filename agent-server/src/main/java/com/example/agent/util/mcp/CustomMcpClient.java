@@ -30,7 +30,7 @@ public class CustomMcpClient {
         return buildTools4Chat(tools);
     }
 
-    public static String callTool(String baseUrl,String toolName,String inputs){
+    public static McpSchema.CallToolResult callTool(String baseUrl,String toolName,String inputs){
         HttpClientStreamableHttpTransport TRANSPORT = HttpClientStreamableHttpTransport.builder(baseUrl).
                 requestBuilder(HttpRequest.newBuilder().header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)).resumableStreams(true).build();
         McpSyncClient client = McpClient.sync(TRANSPORT).capabilities(McpSchema.ClientCapabilities.builder().build()).build();
@@ -38,11 +38,13 @@ public class CustomMcpClient {
         client.ping();
         McpSchema.CallToolRequest callToolRequest = McpSchema.CallToolRequest.builder().arguments(new JacksonMcpJsonMapper(objectMapper),inputs)
                 .name(toolName).meta(Map.of("oa", "xxx")).build();
-        McpSchema.CallToolResult callToolResult = client.callTool(callToolRequest);
+        return client.callTool(callToolRequest);
+    }
+
+    public static String callTool4Text(String baseUrl,String toolName,String inputs){
+        McpSchema.CallToolResult callToolResult =callTool(baseUrl,toolName,inputs) ;
         ToolExecutionResultMessage toolExecutionResultMessage = ToolExecutionResultMessage.toolExecutionResultMessage(UUID.randomUUID().toString(),
                 toolName,String.valueOf(callToolResult.content()));
-        TRANSPORT.closeGracefully();
-        client.close();
         return StringUtils.extractText(toolExecutionResultMessage.text());
     }
 

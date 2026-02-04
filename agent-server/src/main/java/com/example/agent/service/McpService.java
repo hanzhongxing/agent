@@ -8,6 +8,7 @@ import com.example.agent.util.mcp.CustomMcpClient;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.agent.tool.ToolSpecification;
+import io.modelcontextprotocol.spec.McpSchema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -128,7 +129,7 @@ public class McpService extends BaseService{
         if(mcpTool==null){
             return BaseRes.Error(50001,"未找到注册的tool");
         }
-        return callMcpTool(mcpInfo,mcpTool,inputs);
+        return CustomMcpClient.callTool4Text(mcpInfo.getBaseUrl(),mcpTool.getName(),inputs);
     }
 
     private McpInfo getMcpInfo(String id){
@@ -153,14 +154,10 @@ public class McpService extends BaseService{
                 if(mcpTool==null){
                     continue;
                 }
-                return callMcpTool(config,mcpTool,arguments);
+                return CustomMcpClient.callTool(config.getBaseUrl(),mcpTool.getName(),arguments).toString();
             }
         }
-        return "Error: Tool " + toolName + " not found or execution failed on all MCP servers.";
-    }
-
-    private String callMcpTool(McpInfo mcpInfo,McpTool mcpTool,String arguments){
-        return CustomMcpClient.callTool(mcpInfo.getBaseUrl(),mcpTool.getName(),arguments);
+        return McpSchema.CallToolResult.builder().isError(true).addTextContent("Error: Tool " + toolName + " not found or execution failed on all MCP servers.").build().toString();
     }
 
     private McpTool getTool(McpInfo mcpInfo,String name){

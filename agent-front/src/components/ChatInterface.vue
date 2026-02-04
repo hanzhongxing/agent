@@ -93,8 +93,7 @@
                </el-avatar>
              </div>
              <div class="message-bubble-container">
-               <div class="message-bubble">
-                 {{ msg.content }}
+               <div :class="['message-bubble', { 'mcp-tool-message': isMcpToolCall(msg) }]" v-html="msg.content">
                </div>
                <span class="timestamp">{{ formatTime(new Date()) }}</span>
              </div>
@@ -439,6 +438,11 @@ const ragFiles = ref([]);
 const ragFilesLoading = ref(false);
 const chatHistory = ref(null);
 const isSidebarCollapsed = ref(false);
+
+const isMcpToolCall = (msg) => {
+  // 假设后端返回的工具调用消息会有一个特定的标记，例如以 "TOOL_CALL_RESULT:" 开头
+  return msg.role === 'assistant' && msg.content.startsWith('TOOL_CALL_RESULT:');
+};
 
 const currentSession = computed(() => {
     return sessions.value.find(s => s.id === currentSessionId.value) || sessions.value[0];
@@ -1172,6 +1176,14 @@ const formatSize = (bytes) => {
   border-radius: 20px 20px 20px 4px;
 }
 
+.mcp-tool-message {
+  background: #e0f2fe; /* 淡蓝色背景 */
+  border: 1px solid #90cdf4; /* 蓝色边框 */
+  color: #2b6cb0; /* 深蓝色文字 */
+  font-style: italic; /* 斜体 */
+  border-radius: 20px 20px 20px 4px; /* 保持圆角 */
+}
+
 .avatar {
   margin-top: auto; 
   margin-bottom: 8px;
@@ -1519,7 +1531,7 @@ const formatSize = (bytes) => {
   .tool-inputs .input-item .input-desc {
     flex-basis: 100%; /* Make description take full width */
     font-size: 12px;
-    color: #9ca3af;
+    color: #9ca3baf;
     margin-top: 5px;
     margin-bottom: 0;
   }

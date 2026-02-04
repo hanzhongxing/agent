@@ -96,19 +96,27 @@ public class ChatController {
             public void onComplete(Response<AiMessage> response) {
                 AiMessage aiMessage = response.content();
                 if (aiMessage.hasToolExecutionRequests()) {
-                    // TOOL EXECUTION DETECTED
+                    // Tool Execution Logic
                     messages.add(aiMessage);
                     for (ToolExecutionRequest toolRequest : aiMessage.toolExecutionRequests()) {
                         String toolName = toolRequest.name();
                         String args = toolRequest.arguments();
-                        sink.next("TOOL_CALL_RESULT: [mcp tool: " + toolName + "]\n");
+                        // 【关键修改】发送特殊标记的JSON字符串，包含完整的输入参数
+                        // 格式：:::TOOL_START:::{JSON Data}:::TOOL_END:::
+                        String toolStartJson = String.format("{\"name\":\"%s\", \"args\":%s}", toolName, args.replace("\n", ""));
+                        sink.next("\n:::TOOL_START:::" + toolStartJson + ":::TOOL_END:::\n");
+
                         String result = "Error: Tool execution failed.";
                         try {
                             result = mcpService.executeTool(toolName, args);
                         } catch (Exception e) {
                             logger.error("Error executing MCP tool {}", toolName, e);
-                            sink.next("Error executing tool: " + e.getMessage() + "\n");
+                            result = "Error executing tool: " + e.getMessage();
                         }
+                        // 【关键修改】发送结果，前端拿到后更新上面的卡片
+                        // 为了避免特殊字符破坏流，这里可以考虑简单转义，或者直接发送文本
+                        // 这里我们发送一个结果标记
+                        sink.next(":::TOOL_OUTPUT_START:::\n" + result + "\n:::TOOL_OUTPUT_END:::\n");
                         messages.add(ToolExecutionResultMessage.from(toolRequest, result));
                     }
                     generateResponse(client, messages, tools, sink, sessionId, useMemory, originalUserMessage);

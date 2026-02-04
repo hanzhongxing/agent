@@ -73,6 +73,7 @@
         </div>
 
         <div class="messages-container" ref="chatHistory">
+
           <div v-if="currentSession.messages.length === 0" class="empty-state">
              <div class="icon-wrapper">
                <el-icon :size="40" color="#6366f1"><ChatDotRound /></el-icon>
@@ -86,9 +87,9 @@
              </div>
           </div>
 
-          <div v-for="(msg, index) in currentSession.messages" :key="index" :class="['message-row', msg.role]">
+          <!-- <div v-for="(msg, index) in currentSession.messages" :key="index" :class="['message-row', msg.role]">
              <div class="avatar">
-               <el-avatar :size="36" :src="msg.role === 'user' ? 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png' : '/robot-avatar.png'" :icon="msg.role === 'assistant' ? 'ElementPlus' : ''" :class="msg.role">
+               <el-avatar :size="36" :src="msg.role === 'user' ? '/user.png' : '/robot-avatar.png'" :icon="msg.role === 'assistant' ? 'ElementPlus' : ''" :class="msg.role">
                   <template #default v-if="msg.role === 'assistant'"><el-icon><Cpu /></el-icon></template>
                </el-avatar>
              </div>
@@ -97,8 +98,60 @@
                </div>
                <span class="timestamp">{{ formatTime(new Date()) }}</span>
              </div>
-          </div>
+          </div> -->
           
+          <div v-for="(msg, index) in currentSession.messages" :key="index" :class="['message-row', getMessageClass(msg)]">
+             
+             <!-- Avatar 逻辑 -->
+             <div class="avatar" v-if="msg.role !== 'tool' && msg.role !== 'assistant_tool_request'">
+               <el-avatar :size="36" :src="msg.role === 'user' ? '/user.png' : '/robot-avatar.png'" :class="msg.role">
+                  <template #default v-if="msg.role === 'assistant'"><el-icon><Cpu /></el-icon></template>
+               </el-avatar>
+             </div>
+
+             <!-- 消息气泡容器 -->
+             <div class="message-bubble-container">
+               
+               <!-- 1. 普通文本消息 -->
+               <div v-if="msg.role === 'user' || msg.role === 'assistant'" 
+                    class="message-bubble" 
+                    v-html="renderContent(msg.content)">
+               </div>
+
+               <!-- 2. 工具调用过程展示 (Tool Card) -->
+               <div v-else-if="msg.role === 'tool' || msg.role === 'assistant_tool_request' || msg.isTool" class="tool-card">
+                  <div class="tool-header" @click="msg.expanded = !msg.expanded">
+                    <div class="tool-title">
+                      <el-icon class="tool-icon"><Connection /></el-icon>
+                      <span>Used Tool: <strong>{{ msg.toolName || (msg.toolCalls && msg.toolCalls[0].name) || 'Unknown Tool' }}</strong></span>
+                    </div>
+                    <el-icon :class="['expand-icon', { expanded: msg.expanded }]"><ArrowRight /></el-icon>
+                  </div>
+                  
+                  <el-collapse-transition>
+                    <div v-show="msg.expanded" class="tool-details">
+                      <!-- Input Arguments -->
+                      <div class="detail-section">
+                        <div class="section-label">Input</div>
+                        <div class="code-block json">
+                          {{ formatArgs(msg.toolCalls ? msg.toolCalls[0].arguments : msg.args) }}
+                        </div>
+                      </div>
+                      
+                      <!-- Output Result -->
+                      <div class="detail-section">
+                        <div class="section-label">Output</div>
+                        <!-- 使用 pre 标签保留格式，并进行 text 转义以显示 XML -->
+                        <pre class="code-block xml">{{ msg.output || msg.content }}</pre>
+                      </div>
+                    </div>
+                  </el-collapse-transition>
+               </div>
+
+               <span class="timestamp" v-if="msg.role !== 'tool'">{{ formatTime(new Date()) }}</span>
+             </div>
+          </div>
+
           <div v-if="loading" class="message-row assistant">
              <div class="avatar"><el-avatar :size="36" src="/robot-avatar.png"><el-icon><Cpu /></el-icon></el-avatar></div>
              <div class="typing-indicator">
@@ -413,7 +466,7 @@ import {
   ChatDotRound, Position, Search, Menu, Plus, Edit,
   Link, Key, PriceTag,View, EditPen,DeleteFilled,
   ChatLineRound, Close, UploadFilled, Loading,
-  Connection, Monitor
+  Connection, Monitor,ArrowRight
 } from '@element-plus/icons-vue';
 
 // State
@@ -438,6 +491,33 @@ const ragFiles = ref([]);
 const ragFilesLoading = ref(false);
 const chatHistory = ref(null);
 const isSidebarCollapsed = ref(false);
+
+// 新增辅助函数
+const getMessageClass = (msg) => {
+  if (msg.role === 'user') return 'user';
+  if (msg.role === 'tool' || msg.role === 'assistant_tool_request' || msg.isTool) return 'tool-row';
+  return 'assistant';
+};
+
+// 简单的 Markdown/HTML 渲染 (如果不想引入 marked 库)
+// 这里主要是为了处理换行
+const renderContent = (content) => {
+  if (!content) return '';
+  // 简单的把换行转为 <br>
+  return content.replace(/\n/g, '<br>');
+};
+
+// 格式化 JSON 参数显示
+const formatArgs = (args) => {
+  if (!args) return '{}';
+  if (typeof args === 'object') return JSON.stringify(args, null, 2);
+  try {
+    const obj = JSON.parse(args);
+    return JSON.stringify(obj, null, 2);
+  } catch (e) {
+    return args;
+  }
+};
 
 const isMcpToolCall = (msg) => {
   // 假设后端返回的工具调用消息会有一个特定的标记，例如以 "TOOL_CALL_RESULT:" 开头
@@ -602,12 +682,33 @@ const loadCurrentSessionMessages = async () => {
     if (!currentSessionId.value) return;
     try {
         const history = await chatApi.getSessionMessages(currentSessionId.value);
-        currentSession.value.messages = history;
+        // 处理历史消息，使其适配 UI
+        currentSession.value.messages = history.map(msg => {
+            if (msg.role === 'tool') {
+                return { ...msg, expanded: false, isTool: true };
+            }
+            if (msg.role === 'assistant_tool_request') {
+                // 这个通常和 tool 是一对，可以在这里做合并逻辑，
+                // 或者简单起见，只显示 'tool' 类型的 Output，把 Request 隐藏或合并
+                // 这里为了简化，我们假设 history 返回了成对数据，我们只渲染 output 那个即可
+                // 但为了完整性，我们也可以渲染 request。
+                // *优化策略*: 后端 memoryController 返回的 tool 消息包含了 output，
+                // 而 request 包含了 input。这里我们可能需要稍微调整后端把它们合并，
+                // 或者在前端做一下合并。
+                // 这里假设我们只渲染 role='tool' (包含 output) 的消息，
+                // 如果需要 input，可以从上一条 assistant_tool_request 获取（这需要更复杂的逻辑）
+                
+                // 简单处理：仅标记，让 template 渲染
+                 return { ...msg, expanded: false, isTool: true };
+            }
+            return msg;
+        });
         scrollToBottom();
     } catch (e) {
         console.error("Failed to load session messages", e);
     }
 };
+
 
 const saveNewModel = async () => {
    if(!newModel.value.name || !newModel.value.apiKey) {
@@ -724,6 +825,7 @@ const scrollToBottom = async () => {
   }
 };
 
+// 重写 sendMessage 处理流式特殊标记
 const sendMessage = async () => {
   if (!inputMessage.value.trim() || loading.value) return;
   
@@ -741,32 +843,14 @@ const sendMessage = async () => {
   await scrollToBottom();
 
   try {
-    const assistantMsg = ref({ role: 'assistant', content: '' });
-    let assistantMsgPushed = false;
-
-    let charQueue = [];
-    let isTyping = false;
-    let streamingFinished = false;
-
-    const startTypewriter = () => {
-      if (isTyping) return;
-      isTyping = true;
-      
-      const interval = setInterval(() => {
-        if (charQueue.length > 0) {
-          if (!assistantMsgPushed) {
-            session.messages.push(assistantMsg.value);
-            assistantMsgPushed = true;
-          }
-          loading.value = false; 
-          assistantMsg.value.content += charQueue.shift();
-          scrollToBottom();
-        } else if (streamingFinished && charQueue.length === 0) {
-          clearInterval(interval);
-          isTyping = false;
-        }
-      }, 20);
-    };
+    // 当前正在构建的消息
+    let currentMsg = { role: 'assistant', content: '' };
+    session.messages.push(currentMsg);
+    
+    // 用于工具调用的临时状态
+    let isHandlingTool = false;
+    let toolBuffer = '';
+    let currentToolMsg = null;
 
     await chatApi.sendMessage(
         userMsg, 
@@ -775,21 +859,67 @@ const sendMessage = async () => {
         selectedModel.value, 
         session.id,
         (token) => {
-            charQueue.push(...token.split(''));
-            startTypewriter();
+            // 检查特殊标记
+            if (token.includes(':::TOOL_START:::')) {
+                isHandlingTool = true;
+                // 从 assistant 消息切换到 tool 消息
+                // 如果当前的 assistant 消息是空的，可以复用，否则新建
+                if (!currentMsg.content.trim()) {
+                    session.messages.pop(); // 移除空的 assistant
+                }
+                
+                // 创建新的工具消息卡片
+                currentToolMsg = {
+                    role: 'tool',
+                    isTool: true,
+                    expanded: true, // 新工具调用默认展开
+                    toolName: 'Detecting...',
+                    args: '',
+                    output: ''
+                };
+                session.messages.push(currentToolMsg);
+                
+                // 解析 JSON 参数 (token 可能包含部分 json)
+                const jsonPart = token.split(':::TOOL_START:::')[1].split(':::TOOL_END:::')[0];
+                try {
+                    const info = JSON.parse(jsonPart);
+                    currentToolMsg.toolName = info.name;
+                    currentToolMsg.args = JSON.stringify(info.args, null, 2);
+                } catch(e) {
+                    currentToolMsg.toolName = 'Processing...';
+                }
+                
+            } else if (token.includes(':::TOOL_OUTPUT_START:::')) {
+               // 准备接收 Output
+               if (currentToolMsg) {
+                   currentToolMsg.output = ''; 
+               }
+            } else if (token.includes(':::TOOL_OUTPUT_END:::')) {
+               isHandlingTool = false;
+               if (currentToolMsg) {
+                   currentToolMsg.expanded = false; // 完成后折叠
+               }
+               // 准备接收后续的 AI 解释
+               currentMsg = { role: 'assistant', content: '' };
+               session.messages.push(currentMsg);
+            } else {
+                // 普通内容处理
+                if (isHandlingTool && currentToolMsg) {
+                    // 这里可能会收到 Output 的流
+                    currentToolMsg.output += token;
+                } else {
+                    currentMsg.content += token;
+                }
+            }
+            scrollToBottom();
         }
     );
-
-    streamingFinished = true;
   } catch (error) {
     console.error(error);
-    session.messages.push({ role: 'assistant', content: 'Connection Error: Please ensure the backend is running.' });
+    session.messages.push({ role: 'assistant', content: 'Error: ' + error.message });
   } finally {
-    // Keep loading true slightly longer if typing is happening
-    if(!isTyping) {
-        loading.value = false;
-        scrollToBottom();
-    }
+    loading.value = false;
+    scrollToBottom();
   }
 };
 
@@ -1585,7 +1715,119 @@ const formatSize = (bytes) => {
   
   .el-collapse-item :deep(.el-collapse-item__content) {
     padding-bottom: 0;
-}
+  }
 
+  /* 新增样式：工具卡片 */
+  .tool-row {
+    width: 100%;
+    display: flex;
+    justify-content: flex-start; /* 左对齐 */
+    margin-bottom: 10px;
+  }
+
+  .tool-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background-color: #f8fafc;
+    overflow: hidden;
+    width: 100%;
+    max-width: 600px; /* 限制卡片宽度 */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+  }
+
+  .tool-header {
+    padding: 10px 15px;
+    background-color: #ffffff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    border-bottom: 1px solid transparent;
+    transition: all 0.2s;
+  }
+
+  .tool-header:hover {
+    background-color: #f1f5f9;
+  }
+
+  .tool-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #475569;
+  }
+
+  .tool-icon {
+    color: #6366f1;
+  }
+
+  .expand-icon {
+    font-size: 12px;
+    color: #94a3b8;
+    transition: transform 0.3s;
+  }
+
+  .expand-icon.expanded {
+    transform: rotate(90deg);
+  }
+
+  .tool-details {
+    padding: 15px;
+    border-top: 1px solid #e2e8f0;
+    background-color: #f8fafc;
+  }
+
+  .detail-section {
+    margin-bottom: 12px;
+  }
+
+  .detail-section:last-child {
+    margin-bottom: 0;
+  }
+
+  .section-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: #64748b;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .code-block {
+    font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+    font-size: 12px;
+    padding: 10px;
+    border-radius: 6px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    margin: 0;
+  }
+
+  .code-block.json {
+    background-color: #e0e7ff; /* 浅蓝背景 */
+    color: #3730a3;
+    border: 1px solid #c7d2fe;
+  }
+
+  .code-block.xml {
+    background-color: #2d2b55; /* 深色背景类似 IDE */
+    color: #e2e8f0;
+    border: 1px solid #1e293b;
+  }
+
+  /* 消息容器需要适配 */
+  .message-bubble-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  /* 调整原来的 message-bubble */
+  .message-bubble {
+      /* 保持原来的样式，但去掉 max-width 限制，让 container 控制 */
+      max-width: 100%; 
+  }
 
 </style>

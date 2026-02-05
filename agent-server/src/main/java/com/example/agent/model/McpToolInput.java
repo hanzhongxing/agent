@@ -1,0 +1,16 @@
+package com.example.agent.model;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class McpToolInput {
+    private String field;
+    private String type;
+    private String desc;
+    private Boolean required;
+
+}

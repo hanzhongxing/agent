@@ -2,8 +2,7 @@ target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
-llm_conf.json
-*.log
+
 ### STS ###
 .apt_generated
 .classpath
@@ -15,6 +14,7 @@ llm_conf.json
 
 ### IntelliJ IDEA ###
 .idea
+.idea/
 *.iws
 *.iml
 *.ipr
@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+*.log
+
+

@@ -1,11 +1,14 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8001/api';
+const API_URL = 'http://localhost:8070/api';
 
 export const chatApi = {
     // Chat & RAG
-    async sendMessage(message, useRag = false, modelId = null, onChunk = null) {
-        const payload = { message, useRag };
+    async sendMessage(message, useRag = false, useMemory = true, modelId = null, sessionId = null, onChunk = null) {
+        const payload = { message, useRag, useMemory };
+        if (sessionId) {
+            payload.sessionId = sessionId;
+        }
         if (modelId) {
             payload.modelId = modelId;
         }
@@ -53,8 +56,24 @@ export const chatApi = {
         return fullContent;
     },
 
-    async ingestDocument(content) {
-        const response = await axios.post(`${API_URL}/rag/ingest`, { content });
+    async getRagFiles() {
+        const response = await axios.get(`${API_URL}/rag/files`);
+        return response.data;
+    },
+    async uploadRagFile(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await axios.post(`${API_URL}/rag/upload`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return response.data;
+    },
+    async uploadRagText(title, content) {
+        const response = await axios.post(`${API_URL}/rag/text`, { title, content });
+        return response.data;
+    },
+    async deleteRagFile(filename) {
+        const response = await axios.delete(`${API_URL}/rag/files/${filename}`);
         return response.data;
     },
 
@@ -63,7 +82,31 @@ export const chatApi = {
         return response.data;
     },
 
+    // Session Management
+    async getSessions() {
+        const response = await axios.get(`${API_URL}/session/sessions`);
+        return response.data;
+    },
+
+    async saveSession(session) {
+        await axios.post(`${API_URL}/session/sessions`, session);
+    },
+
+    async deleteSession(sessionId) {
+        await axios.delete(`${API_URL}/session/sessions/${sessionId}`);
+    },
+
+    async getSessionMessages(sessionId) {
+        const response = await axios.get(`${API_URL}/memory/sessions/${sessionId}/messages`);
+        return response.data;
+    },
+
     // Model Management
+    async getChatModels() {
+        const response = await axios.get(`${API_URL}/models/chat`);
+        return response.data;
+    },
+
     async getModels() {
         const response = await axios.get(`${API_URL}/models`);
         return response.data;
@@ -81,5 +124,59 @@ export const chatApi = {
 
     async deleteModel(id) {
         await axios.delete(`${API_URL}/models/${id}`);
-    }
+    },
+
+    async getMcpServers() {
+        const response = await axios.get(`${API_URL}/mcp`);
+        return response.data;
+    },
+
+    async addMcpServer(config) {
+        const response = await axios.post(`${API_URL}/mcp`, config);
+        return response.data;
+    },
+
+    async updateMcpServer(id, config) {
+        const response = await axios.put(`${API_URL}/mcp/${id}`, config);
+        return response.data;
+    },
+
+    async deleteMcpServer(id) {
+        await axios.delete(`${API_URL}/mcp/${id}`);
+    },
+
+    async getMcpTools(id) {
+        const response = await axios.get(`${API_URL}/mcp/${id}/tools`);
+        return response.data;
+    },
+
+    async executeMcpTool(id, name, inputs) {
+         const response = await axios.post(`${API_URL}/mcp/tool/call/${id}`, {name,inputs });
+        return response.data;
+    },
+
+    async loadPrompts() {
+         const response = await axios.get(`${API_URL}/prompts`);
+        return response.data;
+    },
+
+    async savePrompt(prompt) {
+         const response = await axios.post(`${API_URL}/prompts`, prompt);
+        return response.data;
+    },
+
+    async updatePrompt(id, prompt) {
+         const response = await axios.put(`${API_URL}/prompts/${id}`, prompt);
+        return response.data;
+    },
+
+    async deletePrompt(id) {
+         const response = await axios.delete(`${API_URL}/prompts/${id}`);
+        return response.data;
+    },
+
+    async activatePrompt(id) {
+         const response = await axios.post(`${API_URL}/prompts/${id}/activate`);
+        return response.data;
+    },
 };

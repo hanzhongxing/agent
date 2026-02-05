@@ -1,6 +1,29 @@
 spring:
   application:
     name: agent-server
+  main:
+    allow-circular-references: true
 
 server:
-  port: 8001
+  port: 8070
+
+agent:
+  base:
+    path: /opt/web/agent
+  llm:
+    folder: llm
+    file: llm_conf.json
+  session:
+    folder: session
+    file: session.json
+  memory:
+    folder: memory
+    file: memory.json
+  rag:
+    folder: rag
+  mcp:
+    folder: mcp
+    file: mcp_conf.json
+  prompt:
+    folder: prompt
+    file: system_prompt.json

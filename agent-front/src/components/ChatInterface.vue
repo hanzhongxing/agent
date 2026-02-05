@@ -112,9 +112,7 @@
 
                 <!-- 1. Normal Message (Text/Markdown) -->
                 <div v-else-if="msg.role === 'user' || (msg.role === 'assistant' && !msg.isTool)" class="message-bubble">
-                  <!-- HTML/XML Rendering -->
                   <div v-if="isHtmlOrXml(msg.content)" v-html="msg.content" class="xml-content"></div>
-                  <!-- Markdown Rendering -->
                   <div v-else class="markdown-body" v-html="renderMarkdown(msg.content)"></div>
                 </div>
 

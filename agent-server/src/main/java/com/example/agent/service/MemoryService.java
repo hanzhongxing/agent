@@ -52,15 +52,6 @@ public class MemoryService extends BaseService{
         while (messages.size() > MAX_MESSAGES) {
             messages.removeFirst();
         }
-        ChatSession session=sessionService.getSession(sessionId);
-        if (session==null) {
-            sessionService.addSession(ChatSession.builder()
-                    .id(sessionId)
-                    .title("Conversation " + sessionId)
-                    .useMemory(true)
-                    .useRag(false)
-                    .build());
-        }
         saveMessages();
     }
 
@@ -105,8 +96,7 @@ public class MemoryService extends BaseService{
                     if (msg instanceof UserMessage) {
                         m.put("type", "user");
                         m.put("content", ((UserMessage) msg).singleText());
-                    } else if (msg instanceof AiMessage) {
-                        AiMessage aiMsg = (AiMessage) msg;
+                    } else if (msg instanceof AiMessage aiMsg) {
                         if (aiMsg.hasToolExecutionRequests()) {
                             m.put("type", "assistant_tool_request");
                             m.put("content", aiMsg.text());

@@ -110,7 +110,7 @@ public class ChatController {
                         String args = toolRequest.arguments();
                         String toolStartJson = String.format("{\"name\":\"%s\", \"args\":%s}", toolName, args.replace("\n", ""));
                         sink.next("\n:::TOOL_START:::" + toolStartJson + ":::TOOL_END:::\n");
-                        String result = "Error: Tool execution failed.";
+                        String result;
                         try {
                             result = mcpService.executeTool(toolName, args);
                         } catch (Exception e) {

@@ -26,7 +26,7 @@ export const chatApi = {
         }
 
         const reader = response.body.getReader();
-        const decoder = new TextDecoder();
+        const decoder = new TextDecoder('utf-8');
         let fullContent = '';
 
         while (true) {
@@ -34,6 +34,8 @@ export const chatApi = {
             if (done) break;
 
             const chunk = decoder.decode(value, { stream: true });
+
+            console.log('Received chunk:', chunk);
 
             // Handle SSE format "data: token\n\n"
             // Spring Flux might send multiple data lines in one chunk or partial lines

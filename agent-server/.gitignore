@@ -3,7 +3,7 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 llm_conf.json
-
+*.log
 ### STS ###
 .apt_generated
 .classpath

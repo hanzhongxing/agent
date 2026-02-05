@@ -1625,9 +1625,9 @@ const formatSize = (bytes) => {
 }
 
 .message-bubble {
-  padding: 16px 20px;
+  padding: 10px 10px;
   font-size: 15px;
-  line-height: 1.6;
+  line-height: 1.0;
   position: relative;
    /* 新增：保留空白符和换行符，自动换行 */
   white-space: pre-wrap; 
@@ -2265,7 +2265,7 @@ const formatSize = (bytes) => {
 /* Markdown 内容样式修正 */
 .markdown-body {
   font-size: 15px;
-  line-height: 1.6;
+  line-height: 1.0;
 }
 
 /* 段落间距 */

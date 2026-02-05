@@ -97,10 +97,6 @@ public class ChatController {
             }
             @Override
             public void onComplete(Response<AiMessage> response) {
-                if(response==null){
-                    sink.complete();
-                    return;
-                }
                 AiMessage aiMessage = response.content();
                 if (aiMessage.hasToolExecutionRequests()) {
                     messages.add(aiMessage);

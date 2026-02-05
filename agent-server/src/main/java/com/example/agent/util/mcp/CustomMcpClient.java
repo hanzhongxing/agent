@@ -12,12 +12,15 @@ import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
 import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.spec.McpSchema;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import java.net.http.HttpRequest;
 import java.util.*;
 
 public class CustomMcpClient {
+    private final static Logger logger= LoggerFactory.getLogger(CustomMcpClient.class);
     private final static ObjectMapper objectMapper = new ObjectMapper();
 
     public static List<McpTool> getTools4Show(String baseUrl){
@@ -49,15 +52,20 @@ public class CustomMcpClient {
     }
 
     private static List<McpSchema.Tool> getTools(String baseUrl){
-        HttpClientStreamableHttpTransport TRANSPORT = HttpClientStreamableHttpTransport.builder(baseUrl).
-                requestBuilder(HttpRequest.newBuilder().header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)).resumableStreams(true).build();
-        McpSyncClient client = McpClient.sync(TRANSPORT).capabilities(McpSchema.ClientCapabilities.builder().build()).build();
-        client.initialize();
-        client.ping();
-        List<McpSchema.Tool> tools = client.listTools().tools();
-        TRANSPORT.closeGracefully();
-        client.close();
-        return tools;
+        try {
+            HttpClientStreamableHttpTransport TRANSPORT = HttpClientStreamableHttpTransport.builder(baseUrl).
+                    requestBuilder(HttpRequest.newBuilder().header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)).resumableStreams(true).build();
+            McpSyncClient client = McpClient.sync(TRANSPORT).capabilities(McpSchema.ClientCapabilities.builder().build()).build();
+            client.initialize();
+            client.ping();
+            List<McpSchema.Tool> tools = client.listTools().tools();
+            TRANSPORT.closeGracefully();
+            client.close();
+            return tools;
+        }catch (Exception e){
+            logger.error(e.getMessage(),e);
+        }
+        return null;
     }
 
     private static List<ToolSpecification> buildTools4Chat(List<McpSchema.Tool> tools){

@@ -88,13 +88,7 @@ public class ChatController {
         });
     }
 
-    private void generateResponse(
-            StreamingChatLanguageModel client,
-            List<ChatMessage> messages,
-            List<ToolSpecification> tools,
-            FluxSink<String> sink,
-            String sessionId
-    ) {
+    private void generateResponse(StreamingChatLanguageModel client,List<ChatMessage> messages,List<ToolSpecification> tools,FluxSink<String> sink,String sessionId) {
         logger.info("Generating with {} tools", tools.size());
         client.generate(messages, tools, new StreamingResponseHandler<AiMessage>() {
             @Override

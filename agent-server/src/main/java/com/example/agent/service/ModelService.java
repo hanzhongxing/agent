@@ -40,7 +40,7 @@ public class ModelService extends BaseService{
     }
 
     public List<ModelInfo> getChatConfigs(){
-        return modelInfos.stream().filter(modelInfo -> modelInfo.getEmbed()==null||!modelInfo.getEmbed()).collect(Collectors.toList());
+        return modelInfos.stream().filter(modelInfo -> !modelInfo.isEmbed()).collect(Collectors.toList());
     }
 
     public EmbeddingModel getEmbeddingModel() {
@@ -57,7 +57,7 @@ public class ModelService extends BaseService{
     }
 
     private ModelInfo getEmbedModelConf(){
-        return modelInfos.stream().filter(e->e.getEmbed()!=null&&e.getEmbed()).toList().getFirst();
+        return modelInfos.stream().filter(ModelInfo::isEmbed).toList().getFirst();
     }
 
     public ModelInfo getConfig(String id) {

@@ -13,5 +13,5 @@ public class ModelInfo {
     private String baseUrl;
     private String apiKey;
     private String modelName;
-    private Boolean embed;
+    private boolean embed;
 }

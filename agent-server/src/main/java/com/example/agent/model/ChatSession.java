@@ -11,7 +11,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ChatSession {
+
     private String id;
+
     private String title;
 
     @JsonProperty("useMemory")

@@ -208,7 +208,7 @@
                 <el-button type="primary" size="small" @click="activeTab = 'addmodel'">Add Model</el-button>
               </div>
               <div class="table-wrapper">
-                <el-table :data="allModel" style="width: 100%" height="100%">
+                <el-table :data="allModel" style="width: 100%" height="400px">
                   <el-table-column prop="name" label="Name" min-width="120" />
                   <el-table-column prop="modelName" label="Model ID" min-width="150" />
                   <el-table-column prop="embed" label="Embed" width="80" align="center">
@@ -266,7 +266,7 @@
                 <el-tabs v-model="activeRagTab">
                   <el-tab-pane label="Files" name="manage">
                     <div class="table-wrapper">
-                      <el-table :data="ragFiles" v-loading="ragFilesLoading" height="100%">
+                      <el-table :data="ragFiles" v-loading="ragFilesLoading" height="400px">
                         <el-table-column prop="name" label="File Name" show-overflow-tooltip />
                         <el-table-column prop="size" label="Size" width="100">
                           <template #default="scope">{{ formatSize(scope.row.size) }}</template>
@@ -303,7 +303,7 @@
                   <el-button type="primary" size="small" @click="startAddMcp">Add Server</el-button>
                 </div>
                 <div class="table-wrapper">
-                  <el-table :data="mcpConfigs" style="width: 100%" height="100%">
+                  <el-table :data="mcpConfigs" style="width: 100%" height="400px">
                       <el-table-column prop="name" label="Name" />
                       <el-table-column prop="baseUrl" label="URL" show-overflow-tooltip/>
                       <el-table-column label="Status" width="80">
@@ -387,7 +387,7 @@
                 <el-button type="primary" size="small" @click="startAddPrompt">New Prompt</el-button>
               </div>
               <div class="table-wrapper">
-                <el-table :data="promptList" style="width: 100%" height="100%">
+                <el-table :data="promptList" style="width: 100%" height="400px">
                   <el-table-column prop="name" label="Name" width="150" show-overflow-tooltip />
                   <el-table-column prop="content" label="Content" show-overflow-tooltip />
                   <el-table-column label="Active" width="80" align="center">
@@ -1028,13 +1028,13 @@ const formatSize = (bytes) => {
 .sidebar-btn.primary {
   width: 100%;
   justify-content: flex-start;
-  background: #fff;
+  background: #2563eb;
   border: 1px solid #e2e8f0;
-  color: #334155;
+  color: #fff;
   margin-bottom: 20px;
   font-weight: 500;
 }
-.sidebar-btn.primary:hover { border-color: #2563eb; color: #2563eb; background: #eff6ff; }
+.sidebar-btn.primary:hover { border-color: #2563eb; color: #fff; background: #034ae3; }
 
 .section-title {
   font-size: 11px;

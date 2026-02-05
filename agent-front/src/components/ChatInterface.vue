@@ -1,14 +1,15 @@
 <template>
   <div class="app-container">
     <div class="chat-window">
+      <!-- Sidebar -->
       <div class="sidebar" :class="{ 'collapsed': isSidebarCollapsed }">
         <div class="sidebar-header">
           <div class="logo">
-            <el-icon :size="24" color="#fff"><Cpu /></el-icon>
-            <span v-if="!isSidebarCollapsed">My Agent AI</span>
+            <el-icon :size="20" color="#fff"><Cpu /></el-icon>
+            <span v-if="!isSidebarCollapsed">Agent AI</span>
           </div>
           <el-button link @click="isSidebarCollapsed = !isSidebarCollapsed" class="collapse-btn">
-            <el-icon color="#94a3b8"><Fold v-if="!isSidebarCollapsed" /><Expand v-else /></el-icon>
+            <el-icon color="#9ca3af"><Fold v-if="!isSidebarCollapsed" /><Expand v-else /></el-icon>
           </el-button>
         </div>
 
@@ -34,16 +35,16 @@
             </div>
           </div>
 
-          <div class="section-title" style="margin-top: 10px">OPTIONS</div>
+          <div class="section-title" style="margin-top: auto">OPTIONS</div>
           
           <div class="control-card">
             <div class="control-row">
-              <span class="label">Knowledge Base (RAG)</span>
-              <el-switch v-model="currentSession.useRag" size="small" active-color="#6366f1" @change="syncSession(currentSession)" />
+              <span class="label">Knowledge Base</span>
+              <el-switch v-model="currentSession.useRag" size="small" active-color="#2563eb" @change="syncSession(currentSession)" />
             </div>
             <div class="control-row" style="margin-top: 10px">
-              <span class="label">Context Memory</span>
-              <el-switch v-model="currentSession.useMemory" size="small" active-color="#6366f1" @change="syncSession(currentSession)" />
+              <span class="label">Memory</span>
+              <el-switch v-model="currentSession.useMemory" size="small" active-color="#2563eb" @change="syncSession(currentSession)" />
             </div>
           </div>
         </div>
@@ -54,7 +55,7 @@
         <div class="chat-header">
            <div class="header-info">
              <h3>Assistant</h3>
-             <el-select v-model="selectedModel" placeholder="Select Model" size="small" style="width: 150px; margin-left: 10px">
+             <el-select v-model="selectedModel" placeholder="Select Model" size="small" style="width: 160px; margin-left: 12px">
                 <el-option
                   v-for="item in modelOptions"
                   :key="item.id"
@@ -72,107 +73,96 @@
         </div>
 
         <div class="messages-container" ref="chatHistory">
-
+          <!-- Empty State -->
           <div v-if="currentSession.messages.length === 0" class="empty-state">
              <div class="icon-wrapper">
-               <el-icon :size="40" color="#6366f1"><ChatDotRound /></el-icon>
+               <el-icon :size="32" color="#2563eb"><ChatDotRound /></el-icon>
              </div>
-             <h2>Welcome, Human.</h2>
-             <p>I am your advanced AI agent. Ask me anything or upload documents to get started.</p>
+             <h2>How can I help you today?</h2>
              <div class="suggestions">
-               <el-tag class="suggestion-tag" @click="setInput('What can you do?')">What can you do?</el-tag>
-               <el-tag class="suggestion-tag" @click="setInput('Write a poem about code.')">Write a poem</el-tag>
-               <el-tag class="suggestion-tag" @click="setInput('Explain Quantum Computing.')">Explain Quantum Computing</el-tag>
+               <div class="suggestion-card" @click="setInput('What can you do?')">What can you do?</div>
+               <div class="suggestion-card" @click="setInput('Write a poem about code.')">Write a poem</div>
+               <div class="suggestion-card" @click="setInput('Explain Quantum Computing.')">Explain Quantum Computing</div>
              </div>
           </div>
 
+          <!-- Message List -->
           <div v-for="(msg, index) in currentSession.messages" :key="index" :class="['message-row', getMessageClass(msg)]">
-             <!-- Avatar 逻辑优化：需求2 -->
+             <!-- Avatar -->
              <div class="avatar" :style="{ visibility: showAvatar(msg, index) ? 'visible' : 'hidden' }">
-               <el-avatar :size="36" :src="msg.role === 'user' ? '/user.png' : '/robot-avatar.png'" :class="msg.role" v-if="showAvatar(msg, index)">
-                  <template #default v-if="msg.role === 'assistant'"><el-icon><Cpu /></el-icon></template>
+               <el-avatar 
+                  :size="32" 
+                  :src="msg.role === 'user' ? '' : '/robot-avatar.png'" 
+                  :class="['avatar-img', msg.role]" 
+                  v-if="showAvatar(msg, index)"
+                >
+                  <template #default>
+                    <el-icon v-if="msg.role === 'assistant'"><Cpu /></el-icon>
+                    <span v-else>U</span>
+                  </template>
                </el-avatar>
-               <!-- 占位符，保持对齐 -->
-               <div v-else style="width: 36px; height: 36px;"></div>
+               <div v-else style="width: 32px; height: 32px;"></div>
              </div>
-             <div v-if="msg.loading && msg.role === 'assistant'" class="typing-indicator">
-               <span></span><span></span><span></span>
-             </div>
-             <!-- 消息气泡容器 -->
-             <div v-else class="message-bubble-container">
-               <!-- 1. 普通文本消息 -->
-               <div v-if="msg.role === 'user' || (msg.role === 'assistant' && !msg.isTool)"  class="message-bubble">
-                <!-- 分支 1: 如果是 HTML/XML，使用 v-html 渲染 DOM -->
-                <div v-if="isHtmlOrXml(msg.content)" 
-                      v-html="msg.content" 
-                      class="xml-content">
+
+             <!-- Content Area -->
+             <div class="message-content-wrapper">
+                <div v-if="msg.loading && msg.role === 'assistant'" class="typing-indicator">
+                  <span></span><span></span><span></span>
                 </div>
 
-                <!-- ⭐️ 普通 AI 回复改用 Markdown 渲染 -->
-                <div v-else 
-                    class="markdown-body" 
-                    v-html="renderMarkdown(msg.content)">
+                <!-- 1. Normal Message (Text/Markdown) -->
+                <div v-else-if="msg.role === 'user' || (msg.role === 'assistant' && !msg.isTool)" class="message-bubble">
+                  <!-- HTML/XML Rendering -->
+                  <div v-if="isHtmlOrXml(msg.content)" v-html="msg.content" class="xml-content"></div>
+                  <!-- Markdown Rendering -->
+                  <div v-else class="markdown-body" v-html="renderMarkdown(msg.content)"></div>
                 </div>
 
-               </div>
-
-               <!-- 2. 工具调用过程展示 (Tool Card) -->
-               <div v-else-if="msg.isTool" class="tool-card">
+                <!-- 2. Tool Card -->
+                <div v-else-if="msg.isTool" class="tool-card">
                   <div class="tool-header" @click="msg.expanded = !msg.expanded">
                     <div class="tool-title">
                       <el-icon class="tool-icon"><Connection /></el-icon>
-                      <!-- 优先显示解析出的工具名 -->
-                      <span>Used Tool: <strong>{{ msg.toolName || getToolName(msg) }}</strong></span>
+                      <span>Used: <strong>{{ msg.toolName || getToolName(msg) }}</strong></span>
                     </div>
                     <el-icon :class="['expand-icon', { expanded: msg.expanded }]"><ArrowRight /></el-icon>
                   </div>
                   
                   <el-collapse-transition>
                     <div v-show="msg.expanded" class="tool-details">
-                      <!-- Input Arguments: 需求1 -->
                       <div class="detail-section">
                         <div class="section-label">Input</div>
-                        <div class="code-block json">
-                          {{ formatArgs(msg.args || msg.toolCalls) }}
-                        </div>
+                        <div class="code-block json">{{ formatArgs(msg.args || msg.toolCalls) }}</div>
                       </div>
-                      
-                      <!-- Output Result: 需求3 (XML渲染) -->
                       <div class="detail-section">
                         <div class="section-label">Output</div>
-                        
-                        <!-- 如果检测到 HTML/XML，渲染 DOM -->
-                        <!-- <div  class="xml-render-block" v-html="msg.output"></div> -->
-                        
-                        <!-- 否则显示代码块 -->
                         <pre class="code-block xml">{{ msg.output || msg.content }}</pre>
                       </div>
                     </div>
                   </el-collapse-transition>
-               </div>
+                </div>
 
-               <span class="timestamp" v-if="msg.role !== 'tool' && !msg.isTool">{{ formatTime(new Date()) }}</span>
+                <span class="timestamp" v-if="msg.role !== 'tool' && !msg.isTool">{{ formatTime(new Date()) }}</span>
              </div>
           </div>
+        </div>
 
+        <!-- Input Area -->
         <div class="input-section">
-           <div class="input-wrapper">
+           <div class="input-container">
              <el-input 
                v-model="inputMessage" 
-               placeholder="Type your message..." 
-               class="modern-input"
+               placeholder="Send a message..." 
+               class="chat-input"
                @keyup.enter="sendMessage"
                :disabled="loading"
                type="text"
              >
-              <template #prefix>
-                <el-icon class="input-icon"><Search /></el-icon>
-              </template>
               <template #suffix>
                  <el-button 
                    circle 
                    type="primary" 
-                   class="send-btn-inner" 
+                   class="send-btn" 
                    @click="sendMessage"
                    :disabled="!inputMessage.trim() || loading"
                  >
@@ -182,15 +172,14 @@
              </el-input>
            </div>
            <div class="input-footer">
-             <span>Press Enter to send</span>
+             AI can make mistakes. Please check important information.
            </div>
         </div>
-      </div>
       </div>
     </div>
 
     <!-- Settings Dialog -->
-    <el-dialog v-model="showSettingsDialog" title="Configuration" width="800px" class="premium-dialog" center align-center>
+    <el-dialog v-model="showSettingsDialog" title="Settings" width="850px" class="settings-dialog" align-center>
       <div class="dialog-layout">
         <div class="settings-sidebar">
           <div 
@@ -203,11 +192,9 @@
             <el-icon v-else-if="tab==='rag'"><DocumentAdd/></el-icon>
             <el-icon v-else-if="tab==='mcp'"><Connection /></el-icon>
             <el-icon v-else-if="tab==='prompt'"><MagicStick /></el-icon>
-
-            <span v-if="tab==='model'">Model</span>
-            <span v-else-if="tab==='rag'">RAG</span>
-            <span v-else-if="tab==='mcp'">MCP</span>
-            <span v-else-if="tab==='prompt'">Prompts</span>
+            <span class="tab-label">
+              {{ tab === 'model' ? 'Models' : tab === 'rag' ? 'Knowledge' : tab === 'mcp' ? 'Tools (MCP)' : 'Prompts' }}
+            </span>
           </div>
         </div>
 
@@ -216,30 +203,22 @@
             <!-- MODEL TAB -->
             <div v-if="activeTab === 'model'" key="model" class="settings-content">
               <div class="content-header">
-                <h3 style="display: inline-block">Installed Models</h3>
-                <el-button type="primary" size="small" style="float: right;" @click="activeTab = 'addmodel'" class="gradient-btn" >Add New Model</el-button>
+                <h3>Models</h3>
+                <el-button type="primary" size="small" @click="activeTab = 'addmodel'">Add Model</el-button>
               </div>
-              <div class="table-container">
-                <el-table :data="allModel" style="width: 100%" height="100%" class="custom-table">
-                  <el-table-column prop="name" label="Provider" min-width="120">
+              <div class="table-wrapper">
+                <el-table :data="allModel" style="width: 100%" height="100%">
+                  <el-table-column prop="name" label="Name" min-width="120" />
+                  <el-table-column prop="modelName" label="Model ID" min-width="150" />
+                  <el-table-column prop="embed" label="Embed" width="80" align="center">
                     <template #default="scope">
-                      <div class="model-info">
-                        <span class="model-name">{{ scope.row.name }}</span>
-                      </div>
+                      <el-tag size="small" v-if="scope.row.embed">Yes</el-tag>
                     </template>
                   </el-table-column>
-                  <el-table-column prop="modelName" label="Model ID" min-width="150" />
-                  <el-table-column prop="embed" label="EMBED" min-width="80" />
-                  <el-table-column label="Actions" width="80" align="center">
+                  <el-table-column label="Actions" width="100" align="center">
                     <template #default="scope">
-                      <el-button-group>
-                        <el-tooltip content="Edit" placement="top">
-                          <el-button circle size="small" type="primary" @click="editModel(scope.row)"><el-icon><EditPen /></el-icon></el-button>
-                        </el-tooltip>
-                        <el-tooltip content="Delete" placement="top">
-                          <el-button circle size="small" type="danger" @click="deleteModel(scope.row.id)"><el-icon><DeleteFilled /></el-icon></el-button>
-                        </el-tooltip>
-                      </el-button-group>
+                      <el-button link type="primary" size="small" @click="editModel(scope.row)">Edit</el-button>
+                      <el-button link type="danger" size="small" @click="deleteModel(scope.row.id)">Delete</el-button>
                     </template>
                   </el-table-column>
                 </el-table>
@@ -249,91 +228,68 @@
             <!-- ADD MODEL TAB -->
             <div v-else-if="activeTab === 'addmodel'" key="addmodel" class="settings-content">
                <div class="content-header">
-                <h3>{{ isEditing ? 'Edit Configuration' : 'New Configuration' }}</h3>
-                <p>Configure access to your AI provider.</p>
+                <h3>{{ isEditing ? 'Edit Model' : 'Add Model' }}</h3>
               </div>
-              <el-form label-position="top" class="premium-form">
+              <el-form label-position="top" class="settings-form">
                 <el-row :gutter="20">
                   <el-col :span="12">
-                    <el-form-item label="Configuration Name">
-                      <el-input v-model="newModel.name" placeholder="e.g. My DeepSeek" prefix-icon="Edit" />
+                    <el-form-item label="Name">
+                      <el-input v-model="newModel.name" placeholder="e.g. DeepSeek" />
                     </el-form-item>
                   </el-col>
                   <el-col :span="12">
                      <el-form-item label="Model ID">
-                      <el-input v-model="newModel.modelName" placeholder="e.g. deepseek-chat" prefix-icon="PriceTag" />
+                      <el-input v-model="newModel.modelName" placeholder="e.g. deepseek-chat" />
                     </el-form-item>
                   </el-col>
                 </el-row>
-                
                 <el-form-item label="Base URL">
-                  <el-input v-model="newModel.baseUrl" placeholder="https://api.openai.com/v1" prefix-icon="Link" />
+                  <el-input v-model="newModel.baseUrl" placeholder="https://api.openai.com/v1" />
                 </el-form-item>
-
                 <el-form-item label="API Key">
-                  <el-input v-model="newModel.apiKey" type="password" show-password placeholder="Enter your API key" prefix-icon="Key" />
+                  <el-input v-model="newModel.apiKey" type="password" show-password placeholder="sk-..." />
                 </el-form-item>
                 <el-form-item>
-                  <span class="label" style="margin-right: 10px;">EMBED LLM</span>
-                  <el-switch v-model="newModel.embed" size="small" active-color="#6366f1" />
+                  <el-checkbox v-model="newModel.embed">Use for Embeddings</el-checkbox>
                 </el-form-item>
               </el-form>
               <div class="footer-actions">
-                 <el-button @click="cancelEdit" size="large" plain>Cancel</el-button>
-                 <el-button type="primary" @click="saveNewModel" size="large" class="gradient-btn">
-                   {{ isEditing ? 'Update Model' : 'Create Model' }}
-                 </el-button>
+                 <el-button @click="cancelEdit">Cancel</el-button>
+                 <el-button type="primary" @click="saveNewModel">Save</el-button>
               </div>
             </div>
 
             <!-- RAG TAB -->
             <div v-else-if="activeTab==='rag'" key="rag" class="settings-content">
-              <div class="rag-dialog-container">
-                <el-tabs v-model="activeRagTab" class="custom-tabs">
-                  <el-tab-pane label="Manage Files" name="manage">
-                    <div class="rag-tab-content manage-tab">
-                      <el-table :data="ragFiles" v-loading="ragFilesLoading" height="300px" class="custom-table smaller">
-                        <el-table-column prop="name" label="File Name" min-width="200" show-overflow-tooltip />
+              <div class="rag-container">
+                <el-tabs v-model="activeRagTab">
+                  <el-tab-pane label="Files" name="manage">
+                    <div class="table-wrapper">
+                      <el-table :data="ragFiles" v-loading="ragFilesLoading" height="100%">
+                        <el-table-column prop="name" label="File Name" show-overflow-tooltip />
                         <el-table-column prop="size" label="Size" width="100">
                           <template #default="scope">{{ formatSize(scope.row.size) }}</template>
                         </el-table-column>
-                        <el-table-column label="Actions" width="80" align="center">
+                        <el-table-column width="80" align="center">
                           <template #default="scope">
-                            <el-button circle size="small" type="danger" @click="deleteRagFile(scope.row.name)">
-                              <el-icon><Delete /></el-icon>
-                            </el-button>
+                            <el-button link type="danger" size="small" @click="deleteRagFile(scope.row.name)">Delete</el-button>
                           </template>
                         </el-table-column>
                       </el-table>
                     </div>
                   </el-tab-pane>
-                  <el-tab-pane label="Upload File" name="upload">
-                    <div class="rag-tab-content upload-tab">
-                      <div class="upload-zone" @click="$refs.fileInput.click()">
-                        <el-icon :size="48" color="#6366f1"><UploadFilled /></el-icon>
-                        <p>Click to select or drag and drop files</p>
-                        <span class="upload-hint">Supports PDF, DOC, EXCEL, HTML, TXT</span>
-                        <input type="file" ref="fileInput" style="display: none" @change="handleFileUpload" />
-                      </div>
-                      <div v-if="ingestLoading" class="upload-status">
-                          <el-icon class="is-loading"><Loading /></el-icon> <span>Processing...</span>
-                      </div>
+                  <el-tab-pane label="Upload" name="upload">
+                    <div class="upload-zone" @click="$refs.fileInput.click()">
+                      <el-icon :size="32" color="#94a3b8"><UploadFilled /></el-icon>
+                      <p>Click to upload documents</p>
+                      <input type="file" ref="fileInput" style="display: none" @change="handleFileUpload" />
                     </div>
+                    <div v-if="ingestLoading" class="loading-text">Processing...</div>
                   </el-tab-pane>
-                  <el-tab-pane label="Paste Text" name="text">
-                    <div class="rag-tab-content text-tab">
-                      <el-input v-model="ingestTitle" placeholder="Document Title (optional)" class="margin-bottom" />
-                      <el-input
-                        type="textarea"
-                        v-model="ingestContent"
-                        :rows="10"
-                        placeholder="Paste content here..."
-                        class="custom-textarea"
-                      />
-                      <div class="tab-actions">
-                        <el-button type="primary" @click="handleTextIngest" :loading="ingestLoading" block>Add to Memory</el-button>
-                      </div>
-                    </div>
+                  <el-tab-pane label="Raw Text" name="text">
+                    <el-input v-model="ingestTitle" placeholder="Title" class="mb-3" />
+                    <el-input type="textarea" v-model="ingestContent" :rows="8" placeholder="Content..." />
+                    <el-button type="primary" class="mt-3" @click="handleTextIngest" :loading="ingestLoading">Add</el-button>
                   </el-tab-pane>
                 </el-tabs>
               </div>
@@ -342,186 +298,136 @@
             <!-- MCP LIST TAB -->
             <div v-else-if="activeTab === 'mcp'" key="mcp" class="settings-content">
                 <div class="content-header">
-                <h3 style="display: inline-block">MCP Servers</h3>
-                <p>Manage Model Context Protocol servers.</p>
-                <el-button type="primary" size="small" style="float: right; margin-top: -30px" @click="startAddMcp" class="gradient-btn">Add Server</el-button>
+                  <h3>MCP Servers</h3>
+                  <el-button type="primary" size="small" @click="startAddMcp">Add Server</el-button>
                 </div>
-                <div class="table-container">
-                <el-table :data="mcpConfigs" style="width: 100%" height="100%" class="custom-table">
-                    <el-table-column prop="name" label="Name" max-width="100p"/>
-                    <el-table-column prop="baseUrl" label="Endpoint URL" min-width="150"/>
-                    <el-table-column label="Status" width="80">
-                    <template #default="scope">
-                        <el-tag :type="scope.row.enabled ? 'success' : 'info'" size="small">{{ scope.row.enabled ? 'Active' : 'Disabled' }}</el-tag>
-                    </template>
-                    </el-table-column>
-                    <el-table-column label="Actions" width="100" align="center">
-                    <template #default="scope">
-                        <el-button-group>
-                          <el-tooltip content="View" placement="top">
-                              <el-button circle size="small" type="info" @click="viewMcp(scope.row)"><el-icon><View /></el-icon></el-button>
-                          </el-tooltip>
-                          <el-tooltip content="Edit" placement="top">
-                              <el-button circle size="small" type="primary" @click="editMcp(scope.row)"><el-icon><EditPen /></el-icon></el-button>
-                          </el-tooltip>
-                          <el-tooltip content="Delete" placement="top">
-                              <el-button circle size="small" type="danger" @click="deleteMcp(scope.row.id)"><el-icon><DeleteFilled /></el-icon></el-button>
-                          </el-tooltip>
-                        </el-button-group>
-                    </template>
-                    </el-table-column>
-                </el-table>
+                <div class="table-wrapper">
+                  <el-table :data="mcpConfigs" style="width: 100%" height="100%">
+                      <el-table-column prop="name" label="Name" />
+                      <el-table-column prop="baseUrl" label="URL" show-overflow-tooltip/>
+                      <el-table-column label="Status" width="80">
+                        <template #default="scope">
+                            <div :class="['status-dot', scope.row.enabled ? 'active' : 'inactive']"></div>
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="Actions" width="150" align="center">
+                      <template #default="scope">
+                          <el-button link type="primary" size="small" @click="viewMcp(scope.row)">Tools</el-button>
+                          <el-button link type="primary" size="small" @click="editMcp(scope.row)">Edit</el-button>
+                          <el-button link type="danger" size="small" @click="deleteMcp(scope.row.id)">Del</el-button>
+                      </template>
+                      </el-table-column>
+                  </el-table>
                 </div>
             </div>
 
             <!-- MCP ADD/EDIT TAB -->
             <div v-else-if="activeTab === 'addmcp'" key="addmcp" class="settings-content">
                 <div class="content-header">
-                <h3>{{ isEditingMcp ? 'Edit MCP Server' : 'New MCP Server' }}</h3>
-                <p>Configure an external MCP-compliant server endpoint.</p>
+                   <h3>{{ isEditingMcp ? 'Edit Server' : 'New Server' }}</h3>
                 </div>
-                <el-form label-position="top" class="premium-form">
-                <el-form-item label="Server Name">
-                    <el-input v-model="newMcp.name" placeholder="e.g. Google Search Tools" prefix-icon="Monitor" />
-                </el-form-item>
-                
-                <el-form-item label="Base URL">
-                    <el-input v-model="newMcp.baseUrl" placeholder="http://localhost:3000" prefix-icon="Link" />
-                    <div style="font-size: 11px; color: #9ca3af; margin-top: 5px">
-                    The server must expose GET /tools and POST /tools/{name}.
-                    </div>
-                </el-form-item>
-
-                <el-form-item>
-                    <span class="label" style="margin-right: 10px;">Enabled</span>
-                    <el-switch v-model="newMcp.enabled" size="small" active-color="#10b981" />
-                </el-form-item>
+                <el-form label-position="top" class="settings-form">
+                  <el-form-item label="Name">
+                      <el-input v-model="newMcp.name" placeholder="Name" />
+                  </el-form-item>
+                  <el-form-item label="Base URL">
+                      <el-input v-model="newMcp.baseUrl" placeholder="http://localhost:3000" />
+                  </el-form-item>
+                  <el-form-item>
+                      <el-checkbox v-model="newMcp.enabled">Enabled</el-checkbox>
+                  </el-form-item>
                 </el-form>
                 <div class="footer-actions">
-                    <el-button @click="activeTab = 'mcp'" size="large" plain>Cancel</el-button>
-                    <el-button type="primary" @click="saveMcp" size="large" class="gradient-btn">
-                    {{ isEditingMcp ? 'Update Server' : 'Register Server' }}
-                    </el-button>
+                    <el-button @click="activeTab = 'mcp'">Cancel</el-button>
+                    <el-button type="primary" @click="saveMcp">Save</el-button>
                 </div>
             </div>
 
-              <!-- MCP view mcp tools -->
+            <!-- MCP TOOLS TAB -->
              <div v-else-if="activeTab === 'viewmcp'" key="viewmcp" class="settings-content">
                 <div class="content-header">
-                  <h3>MCP Tools</h3>
-                  <p>View tools available from MCP servers.</p>
+                  <h3>Available Tools</h3>
+                  <el-button size="small" @click="activeTab = 'mcp'">Back</el-button>
                 </div>
                 <div class="tool-list">
-                   <el-collapse>
+                   <el-collapse accordion>
                       <el-collapse-item v-for="tool in mcpTools" :key="tool.name">
                         <template #title>
-                          <div class="tool-header">
-                            <el-icon class="tool-name-icon"><Connection /></el-icon>
-                            <span class="tool-name">{{ tool.name }}</span>
-                          </div>
+                          <span class="tool-list-item">{{ tool.name }}</span>
                         </template> 
-                        <div class="tool-details">
-                          <span class="description">{{ tool.description }}</span>
-                          <div class="tool-inputs" v-if="tool.inputs&&tool.inputs.length>0">
-                              <div class="input-item" v-for="input in tool.inputs" :key="input.field">
-                                <span class="input-name">{{ input.field }}</span>
-                                <span class="input-type">({{ input.type }})</span>
-                                <span v-if="input.required" class="input-required">Required</span>
-                                <span v-else class="input-optional">Optional</span>
-                                <span class="input-desc">{{ input.desc }}</span>
-                                <el-input v-model="input.value" placeholder="Enter value"></el-input>
+                        <div class="tool-panel">
+                          <p class="desc">{{ tool.description }}</p>
+                          <div class="tool-inputs-grid" v-if="tool.inputs && tool.inputs.length">
+                              <div class="tool-input-row" v-for="input in tool.inputs" :key="input.field">
+                                <div class="input-meta">
+                                  <span class="fname">{{ input.field }}</span>
+                                  <span class="ftype">{{ input.type }}</span>
+                                  <span class="freq" v-if="input.required">*</span>
+                                </div>
+                                <el-input v-model="input.value" size="small" :placeholder="input.desc" />
                               </div>
                           </div>
-                          <div class="tool-function">
-                            <el-button type="primary" :loading="tool.loading" @click="executeMcpTool(tool)" size="small">Execute Tool</el-button>
+                          <div class="mt-3 text-right">
+                            <el-button type="primary" size="small" :loading="tool.loading" @click="executeMcpTool(tool)">Run Tool</el-button>
                           </div>
-                          <div class="tool-response" v-if="tool.response">
-                            <h4>Response:</h4>
+                          <div class="tool-result" v-if="tool.response">
                             <pre>{{ tool.response }}</pre>
                           </div>
                         </div>
                       </el-collapse-item>
                    </el-collapse>
                 </div>
-                <div class="footer-actions">
-                    <el-button @click="activeTab = 'mcp'" size="large" plain>Cancel</el-button>
-                </div>
             </div>
 
-            <!-- SYSTEM PROMPT LIST TAB (新增) -->
+            <!-- PROMPT LIST TAB -->
             <div v-else-if="activeTab === 'prompt'" key="prompt" class="settings-content">
               <div class="content-header">
-                <h3 style="display: inline-block">System Prompts</h3>
-                <p>Define the persona and behavior of your agent.</p>
-                <el-button type="primary" size="small" style="float: right; margin-top: -30px" @click="startAddPrompt" class="gradient-btn">New Prompt</el-button>
+                <h3>Prompts</h3>
+                <el-button type="primary" size="small" @click="startAddPrompt">New Prompt</el-button>
               </div>
-              <div class="table-container">
-                <el-table :data="promptList" style="width: 100%" height="100%" class="custom-table">
-                  <el-table-column prop="name" label="Name" width="100" show-overflow-tooltip>
-                     <template #default="scope">
-                        <strong>{{ scope.row.name }}</strong>
-                     </template>
-                  </el-table-column>
-                  <el-table-column prop="content" label="Preview" show-overflow-tooltip />
-                  <el-table-column label="Status" width="90" align="center">
+              <div class="table-wrapper">
+                <el-table :data="promptList" style="width: 100%" height="100%">
+                  <el-table-column prop="name" label="Name" width="150" show-overflow-tooltip />
+                  <el-table-column prop="content" label="Content" show-overflow-tooltip />
+                  <el-table-column label="Active" width="80" align="center">
                     <template #default="scope">
-                       <el-switch 
-                          v-model="scope.row.active" 
-                          :loading="scope.row.loading"
-                          active-color="#13ce66"
-                          inactive-color="#ff4949"
-                          @change="activatePrompt(scope.row)"
-                       />
-                       <span style="font-size: 11px; margin-left: 5px; color: #666">{{ scope.row.active ? 'On' : 'Off' }}</span>
+                       <el-switch size="small" v-model="scope.row.active" @change="activatePrompt(scope.row)" />
                     </template>
                   </el-table-column>
-                  <el-table-column label="Actions" width="80" align="center">
+                  <el-table-column label="Actions" width="100" align="center">
                     <template #default="scope">
-                      <el-button-group>
-                        <el-tooltip content="Edit" placement="top">
-                          <el-button circle size="small" type="primary" @click="editPrompt(scope.row)"><el-icon><EditPen /></el-icon></el-button>
-                        </el-tooltip>
-                        <el-tooltip content="Delete" placement="top">
-                          <el-button circle size="small" type="danger" @click="deletePrompt(scope.row.id)"><el-icon><DeleteFilled /></el-icon></el-button>
-                        </el-tooltip>
-                      </el-button-group>
+                      <el-button link type="primary" size="small" @click="editPrompt(scope.row)">Edit</el-button>
+                      <el-button link type="danger" size="small" @click="deletePrompt(scope.row.id)">Del</el-button>
                     </template>
                   </el-table-column>
                 </el-table>
               </div>
             </div>
 
-            <!-- SYSTEM PROMPT ADD/EDIT TAB (新增) -->
+            <!-- PROMPT ADD/EDIT TAB -->
             <div v-else-if="activeTab === 'addprompt'" key="addprompt" class="settings-content">
                <div class="content-header">
                 <h3>{{ isEditingPrompt ? 'Edit Prompt' : 'New Prompt' }}</h3>
-                <p>Set instructions for the AI.</p>
               </div>
-              <el-form label-position="top" class="premium-form" style="flex:1; display:flex; flex-direction:column">
-                <el-form-item label="Prompt Name">
-                  <el-input v-model="newPrompt.name" placeholder="e.g. Java Coding Expert" prefix-icon="Edit" />
+              <el-form label-position="top" class="settings-form full-h">
+                <el-form-item label="Name">
+                  <el-input v-model="newPrompt.name" placeholder="e.g. Coding Expert" />
                 </el-form-item>
-                
-                <el-form-item label="Content (Instructions)" style="flex:1; display:flex; flex-direction:column">
-                   <!-- 使 textarea 充满剩余空间 -->
+                <el-form-item label="Instructions" class="flex-grow-item">
                   <el-input 
                     type="textarea" 
                     v-model="newPrompt.content" 
                     placeholder="You are a helpful assistant..." 
-                    :rows="12"
                     resize="none"
-                    class="custom-textarea full-height"
+                    class="full-h-textarea"
                   />
                 </el-form-item>
               </el-form>
               <div class="footer-actions">
-                 <el-button @click="activeTab = 'prompt'" size="large" plain>Cancel</el-button>
-                 <el-button type="primary" @click="savePrompt" size="large" class="gradient-btn">
-                   {{ isEditingPrompt ? 'Update Prompt' : 'Save Prompt' }}
-                 </el-button>
+                 <el-button @click="activeTab = 'prompt'">Cancel</el-button>
+                 <el-button type="primary" @click="savePrompt">Save</el-button>
               </div>
             </div>
-
           </transition>
         </div>
       </div>
@@ -533,19 +439,18 @@
 import { ref, nextTick, onMounted, computed, watch } from 'vue';
 import MarkdownIt from 'markdown-it';
 import hljs from 'highlight.js';
-import 'highlight.js/styles/atom-one-dark.css'; // 引入代码高亮样式
+import 'highlight.js/styles/atom-one-dark.css';
 
 import { chatApi } from '../services/api';
-import axios from 'axios'; // Ensure axios is imported if not used via chatApi wrapper
 import { ElMessage } from 'element-plus';
 import { 
-  Cpu, Fold, Expand, DocumentAdd, Delete, Setting, 
-  ChatDotRound, Position, Search, Menu, Plus, Edit,
-  Link, Key, PriceTag,View, EditPen,DeleteFilled,
-  ChatLineRound, Close, UploadFilled, Loading,
-  Connection, Monitor,ArrowRight,MagicStick
+  Cpu, Fold, Expand, DocumentAdd, Setting, 
+  ChatDotRound, Position, Menu, Plus,
+  ChatLineRound, Close, UploadFilled,
+  Connection, ArrowRight, MagicStick
 } from '@element-plus/icons-vue';
 
+// Markdown Configuration
 const md = new MarkdownIt({
   html: true,
   linkify: true,
@@ -558,21 +463,12 @@ const md = new MarkdownIt({
                '</code></pre>';
       } catch (__) {}
     }
-    // 默认回退
     return '<pre class="hljs"><code>' + md.utils.escapeHtml(str) + '</code></pre>';
   }
 });
 
 // State
-const sessions = ref([
-    {
-        id: 'default',
-        title: 'Default Conversation',
-        messages: [],
-        useMemory: true,
-        useRag: false
-    }
-]);
+const sessions = ref([{ id: 'default', title: 'Default Conversation', messages: [], useMemory: true, useRag: false }]);
 const currentSessionId = ref('default');
 const inputMessage = ref('');
 const loading = ref(false);
@@ -585,26 +481,19 @@ const ragFiles = ref([]);
 const ragFilesLoading = ref(false);
 const chatHistory = ref(null);
 const isSidebarCollapsed = ref(false);
-
-const typewriterQueue = ref([]); // 存放待打印的字符任务: { target: Object, key: String, char: String }
-const isTyping = ref(false);     // 标记打字机循环是否正在运行
-
+const typewriterQueue = ref([]);
+const isTyping = ref(false);
 const promptList = ref([]);
 const newPrompt = ref({ name: '', content: '', active: false });
 const isEditingPrompt = computed(() => !!newPrompt.value.id);
 
-const renderMarkdown = (text) => {
-  if (!text) return '';
-  return md.render(text);
-};
+// --- Functions ---
+const renderMarkdown = (text) => text ? md.render(text) : '';
 
-// --- 新增：打字机处理循环 ---
 const processTypewriter = () => {
   if (typewriterQueue.value.length > 0) {
     isTyping.value = true;
-    
     const queueLength = typewriterQueue.value.length;
-    
     let batchSize = 1;
     const nextTask = typewriterQueue.value[0];
     const isRenderingHtml = nextTask && nextTask.target && isHtmlOrXml(nextTask.target[nextTask.key]);
@@ -619,69 +508,36 @@ const processTypewriter = () => {
         const task = typewriterQueue.value.shift();
         if (task && task.target) {
             task.target[task.key] += task.char;
-            if (task.target.loading) {
-                task.target.loading = false;
-            }
+            if (task.target.loading) task.target.loading = false;
         }
     }
-
-    // 智能滚动：不强制，只有原本在底部时才滚
     scrollToBottom(false);
-
     requestAnimationFrame(processTypewriter);
   } else {
     isTyping.value = false;
   }
 };
 
-// 辅助函数：将文本推入队列
 const pushToTypewriter = (targetObj, keyName, text) => {
     if (!text) return;
-    // 将字符串拆分为字符数组
     const chars = text.split('');
     chars.forEach(char => {
-        typewriterQueue.value.push({
-            target: targetObj,
-            key: keyName,
-            char: char
-        });
+        typewriterQueue.value.push({ target: targetObj, key: keyName, char: char });
     });
-    // 如果打字机未启动，则启动
-    if (!isTyping.value) {
-        processTypewriter();
-    }
-};
-// --------------------------
-
-// 辅助函数：决定是否显示头像 (需求2)
-const showAvatar = (msg, index) => {
-    if (msg.role === 'assistant' || msg.role === 'user') {
-        return true;
-    }
-    return false;
+    if (!isTyping.value) processTypewriter();
 };
 
-// 新增辅助函数
+const showAvatar = (msg, index) => true;
+
 const getMessageClass = (msg) => {
   if (msg.role === 'user') return 'user';
-  if (msg.isTool) return 'tool-row'; // 使用 isTool 标记
+  if (msg.isTool) return 'tool-row';
   return 'assistant';
 };
 
-// 简单的 Markdown/HTML 渲染 (如果不想引入 marked 库)
-// 这里主要是为了处理换行
-const renderContent = (content) => {
-  if (!content) return '';
-  // 简单的把换行转为 <br>
-  return content.replace(/\n/g, '<br>');
-};
-
-// 格式化参数显示
 const formatArgs = (args) => {
   if (!args) return '{}';
-  // 如果已经是数组(来自后端 List)，取第一个元素的 arguments
   if (Array.isArray(args) && args.length > 0) {
-      // 这里的 arguments 可能是 JSON 字符串
       try {
           const argStr = args[0].arguments;
           const obj = JSON.parse(argStr);
@@ -699,91 +555,63 @@ const formatArgs = (args) => {
   }
 };
 
-const isMcpToolCall = (msg) => {
-  // 假设后端返回的工具调用消息会有一个特定的标记，例如以 "TOOL_CALL_RESULT:" 开头
-  return msg.role === 'assistant' && msg.content.startsWith('TOOL_CALL_RESULT:');
-};
-
 const getToolName = (msg) => {
     if (msg.toolName) return msg.toolName;
     if (msg.toolCalls && msg.toolCalls.length > 0) return msg.toolCalls[0].name;
-    // 兼容历史数据解析
-    if (msg.args) {
-        // 如果 args 是 JSON 字符串且包含 name，可以尝试解析
-        return 'Tool';
-    }
+    if (msg.args) return 'Tool';
     return 'Unknown Tool';
 };
 
 const isHtmlOrXml = (content) => {
     if (!content || typeof content !== 'string') return false;
     const trimmed = content.trim();
-    
-    // 如果是纯文本流，通常不会以 < 开头
-    // 只要以 < 开头，我们就认为是 XML/HTML 模式，启用 v-html
-    // 这样可以避免打字过程中在“文本模式”和“HTML模式”之间反复横跳导致闪烁
     return trimmed.startsWith('<') && (trimmed.includes('>') || trimmed.length < 50);
 }
 
-const currentSession = computed(() => {
-    return sessions.value.find(s => s.id === currentSessionId.value) || sessions.value[0];
-});
+const currentSession = computed(() => sessions.value.find(s => s.id === currentSessionId.value) || sessions.value[0]);
 
-// Model Management State
+// Model & MCP State
 const selectedModel = ref('');
 const modelOptions = ref([]);
 const activeTab = ref('model');
 const allModel=ref([]);
-const newModel = ref({
-  name: '',
-  baseUrl: '',
-  apiKey: '',
-  modelName: '',
-  embed: false
-});
-
-// MCP Management State
+const newModel = ref({ name: '', baseUrl: '', apiKey: '', modelName: '', embed: false });
 const mcpConfigs = ref([]);
 const newMcp = ref({ name: '', baseUrl: '', enabled: true });
 const isEditingMcp = computed(() => !!newMcp.value.id);
 const currentMcpId = ref(null);
 const mcpTools=ref([]);
+
 const openSetting = () => {
    activeTab.value = 'model';
    showSettingsDialog.value = true;
    loadModels();
 };
 
-// execute MCP tool
 const executeMcpTool = async (tool) => {
    try {
       tool.loading = true;
       const inputs = {};
       if(tool.inputs && tool.inputs.length > 0) {
-         tool.inputs.forEach(input => {
-            inputs[input.field] = input.value || '';
-         });
+         tool.inputs.forEach(input => inputs[input.field] = input.value || '');
       }
       const response = await chatApi.executeMcpTool(currentMcpId.value,tool.name,JSON.stringify(inputs));
       tool.loading = false;
       tool.response = response;
-      ElMessage.success("Tool executed successfully");
-      // Optionally handle response
+      ElMessage.success("Executed successfully");
    } catch(e) {
       tool.loading = false;
-      ElMessage.error("Failed to execute tool");
+      ElMessage.error("Execution failed");
    }
 };
 
-// Computed
 const getCurrentModelName = computed(() => {
    const found = modelOptions.value.find(m => m.id === selectedModel.value);
    return found ? found.modelName : 'Default';
 });
-
 const isEditing = computed(() => !!newModel.value.id);
 
-// Lifecycle
+// Lifecycle & Data Loading
 onMounted(async () => {
    await loadChatModels();
    await loadSessions();
@@ -793,29 +621,16 @@ const loadChatModels = async () => {
     try {
        const models = await chatApi.getChatModels();
        modelOptions.value = models;
-       if (models.length > 0 && !selectedModel.value) {
-          selectedModel.value = models[0].id;
-       }
-    } catch (e) {
-      console.error("Failed to load models", e);
-   }
+       if (models.length > 0 && !selectedModel.value) selectedModel.value = models[0].id;
+    } catch (e) { console.error("Failed to load models", e); }
 };
 
 const loadModels = async () => {
-    try {
-       const models = await chatApi.getModels();
-       allModel.value = models;
-    } catch (e) {
-      console.error("Failed to load models", e);
-   }
+    try { allModel.value = await chatApi.getModels(); } catch (e) {}
 };
 
-// MCP Functions
 const loadMcps = async () => {
-  try {
-     const res = await chatApi.getMcpServers();
-     mcpConfigs.value = res;
-  } catch(e) { console.error("Failed to load MCPs", e); }
+  try { mcpConfigs.value = await chatApi.getMcpServers(); } catch(e) {}
 };
 
 const startAddMcp = () => {
@@ -826,8 +641,7 @@ const startAddMcp = () => {
 const viewMcp = async (row) => {
     activeTab.value = 'viewmcp';
     currentMcpId.value=row.id;
-    const tools = await chatApi.getMcpTools(row.id);
-    mcpTools.value = tools;
+    mcpTools.value = await chatApi.getMcpTools(row.id);
 };
 
 const editMcp = (row) => {
@@ -836,23 +650,14 @@ const editMcp = (row) => {
 };
 
 const saveMcp = async () => {
-    if(!newMcp.value.name || !newMcp.value.baseUrl) {
-        ElMessage.warning("Name and URL are required");
-        return;
-    }
+    if(!newMcp.value.name || !newMcp.value.baseUrl) return ElMessage.warning("Name and URL are required");
     try {
-        if (newMcp.value.id) {
-            await chatApi.updateMcpServer(newMcp.value.id,newMcp.value);
-            ElMessage.success("MCP updated");
-        } else {
-            await chatApi.addMcpServer(newMcp.value);
-            ElMessage.success("MCP registered");
-        }
+        if (newMcp.value.id) await chatApi.updateMcpServer(newMcp.value.id,newMcp.value);
+        else await chatApi.addMcpServer(newMcp.value);
+        ElMessage.success("MCP saved");
         await loadMcps();
         activeTab.value = 'mcp';
-    } catch(e) {
-        ElMessage.error("Failed to save MCP");
-    }
+    } catch(e) { ElMessage.error("Failed to save MCP"); }
 };
 
 const deleteMcp = async (id) => {
@@ -860,121 +665,78 @@ const deleteMcp = async (id) => {
         await chatApi.deleteMcpServer(id);
         ElMessage.success("MCP deleted");
         await loadMcps();
-    } catch(e) { ElMessage.error("Failed to delete MCP"); }
+    } catch(e) { ElMessage.error("Failed to delete"); }
 }
 
 const loadSessions = async () => {
     try {
         const backendSessions = await chatApi.getSessions();
         if (backendSessions && backendSessions.length > 0) {
-            sessions.value = backendSessions.map(s => ({
-                ...s,
-                messages: []
-            }));
+            sessions.value = backendSessions.map(s => ({ ...s, messages: [] }));
             currentSessionId.value = sessions.value[0].id;
-            await loadCurrentSessionMessages(); // Load for first session
+            await loadCurrentSessionMessages();
         }
-    } catch (e) {
-        console.error("Failed to load sessions", e);
-    }
+    } catch (e) { console.error(e); }
 };
 
 const loadCurrentSessionMessages = async () => {
     if (!currentSessionId.value) return;
     try {
         const history = await chatApi.getSessionMessages(currentSessionId.value);
-        
         const processedMessages = [];
-        
         for (let i = 0; i < history.length; i++) {
             const msg = history[i];
-            
-            // 如果是 AI 发起的工具请求 (Inputs)
             if (msg.role === 'assistant_tool_request') {
-                // 向后查看下一条是否是工具结果 (Output)
                 if (i + 1 < history.length && history[i+1].role === 'tool') {
                     const toolResultMsg = history[i+1];
-                    
-                    // 合并：创建一个前端展示用的工具消息
                     processedMessages.push({
-                        role: 'tool', // 保持 role 为 tool
-                        isTool: true,
+                        role: 'tool', isTool: true,
                         toolName: msg.toolCalls[0].name,
-                        args: msg.toolCalls, // 存入输入参数
-                        output: toolResultMsg.output, // 存入输出结果
-                        expanded: false // 历史记录默认折叠
+                        args: msg.toolCalls,
+                        output: toolResultMsg.output,
+                        expanded: false
                     });
-                    // 跳过下一条（因为已经合并了）
                     i++; 
                 } else {
-                    // 如果只有请求没有结果（异常情况），也显示出来
                     processedMessages.push({
-                         role: 'tool',
-                         isTool: true,
+                         role: 'tool', isTool: true,
                          toolName: msg.toolCalls[0].name,
                          args: msg.toolCalls,
-                         output: '(No output recorded)',
-                         expanded: false
+                         output: '(No output)', expanded: false
                     });
                 }
-            } 
-            // 如果是单独的 tool (不应该发生，因为上面已经合并了，但为了健壮性)
-            else if (msg.role === 'tool') {
-                 processedMessages.push({
-                    ...msg,
-                    isTool: true,
-                    expanded: false,
-                    // 尝试如果没有 args，显示 output
-                    args: msg.args || '{}' 
-                 });
-            }
-            else {
-                // 普通用户或助手消息
+            } else if (msg.role === 'tool') {
+                 processedMessages.push({ ...msg, isTool: true, expanded: false, args: msg.args || '{}' });
+            } else {
                 processedMessages.push(msg);
             }
         }
-        
         currentSession.value.messages = processedMessages;
         scrollToBottom();
-    } catch (e) {
-        console.error("Failed to load session messages", e);
-    }
+    } catch (e) {}
 };
 
 
 const saveNewModel = async () => {
-   if(!newModel.value.name || !newModel.value.apiKey) {
-      ElMessage.warning("Name and API Key are required");
-      return;
-   }
+   if(!newModel.value.name || !newModel.value.apiKey) return ElMessage.warning("Required fields missing");
    try {
-      if (isEditing.value) {
-          await chatApi.updateModel(newModel.value.id, newModel.value);
-          ElMessage.success("Model updated!");
-      } else {
-          await chatApi.addModel(newModel.value);
-          ElMessage.success("Model saved!");
-      }
+      if (isEditing.value) await chatApi.updateModel(newModel.value.id, newModel.value);
+      else await chatApi.addModel(newModel.value);
+      ElMessage.success("Model saved!");
       await loadModels();
-      resetForm();
+      newModel.value = { name: '', baseUrl: '', apiKey: '', modelName: '' };
       activeTab.value = 'model';
-   } catch(e) {
-      ElMessage.error("Failed to save model");
-   }
+   } catch(e) { ElMessage.error("Failed to save model"); }
 };
 
 const editModel = (row) => {
-    newModel.value = { ...row }; // Deep copy
+    newModel.value = { ...row };
     activeTab.value = 'addmodel';
 };
 
 const cancelEdit = () => {
-    resetForm();
-    activeTab.value = 'model';
-};
-
-const resetForm = () => {
     newModel.value = { name: '', baseUrl: '', apiKey: '', modelName: '' };
+    activeTab.value = 'model';
 };
 
 const deleteModel = async (id) => {
@@ -982,90 +744,51 @@ const deleteModel = async (id) => {
       await chatApi.deleteModel(id);
       ElMessage.success("Model deleted");
       await loadModels();
-      if(selectedModel.value === id && modelOptions.value.length > 0) {
-         selectedModel.value = modelOptions.value[0].id;
-      }
-   } catch(e) {
-      ElMessage.error("Failed to delete");
-   }
+      if(selectedModel.value === id && modelOptions.value.length > 0) selectedModel.value = modelOptions.value[0].id;
+   } catch(e) { ElMessage.error("Failed"); }
 };
 
-// Formatting
-const formatTime = (date) => {
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-};
+const formatTime = (date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 const createNewSession = () => {
     const newId = Date.now().toString();
-    const newSession = {
-        id: newId,
-        title: 'New Conversation',
-        messages: [],
-        useMemory: true,
-        useRag: false
-    };
+    const newSession = { id: newId, title: 'New Conversation', messages: [], useMemory: true, useRag: false };
     sessions.value.unshift(newSession);
     currentSessionId.value = newId;
     syncSession(newSession);
 };
 
 const syncSession = async (session) => {
-    try {
-        await chatApi.saveSession(session);
-    } catch (e) {
-        console.error("Failed to sync session to backend", e);
-    }
+    try { await chatApi.saveSession(session); } catch (e) {}
 };
 
 const switchSession = async (id) => {
     currentSessionId.value = id;
-    if (currentSession.value.messages.length === 0) {
-        await loadCurrentSessionMessages();
-    }
+    if (currentSession.value.messages.length === 0) await loadCurrentSessionMessages();
 };
 
 const deleteSession = async (id) => {
-    if (sessions.value.length === 1) {
-        ElMessage.info("Cannot delete the last session");
-        return;
-    }
+    if (sessions.value.length === 1) return ElMessage.info("Cannot delete last session");
     const index = sessions.value.findIndex(s => s.id === id);
     if (index === -1) return;
-
     sessions.value.splice(index, 1);
-    if (currentSessionId.value === id) {
-        currentSessionId.value = sessions.value[0].id;
-    }
-    
-    try {
-        await chatApi.deleteSession(id);
-        ElMessage.success("Session deleted");
-    } catch (e) {
-        console.error("Failed to delete session from backend", e);
-    }
+    if (currentSessionId.value === id) currentSessionId.value = sessions.value[0].id;
+    try { await chatApi.deleteSession(id); } catch (e) {}
 };
 
-// Actions
-const setInput = (text) => {
-  inputMessage.value = text;
-};
+const setInput = (text) => inputMessage.value = text;
 
 const scrollToBottom = async (force = false) => {
   await nextTick();
   if (chatHistory.value) {
     const el = chatHistory.value;
-    // 判断当前是否接近底部 (容差 100px)
-    // 如果是强制滚动 (force=true) 或者 用户已经在底部范围，则滚动
     const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
-    if (force || isAtBottom) {
-      el.scrollTop = el.scrollHeight;
-    }
+    if (force || isAtBottom) el.scrollTop = el.scrollHeight;
   }
 };
 
 const sendMessage = async () => {
   if (!inputMessage.value.trim() || loading.value) return;
-  
   const userMsg = inputMessage.value;
   const session = currentSession.value;
 
@@ -1077,98 +800,53 @@ const sendMessage = async () => {
   session.messages.push({ role: 'user', content: userMsg });
   inputMessage.value = '';
   loading.value = true;
-    // 发送时强制滚到底部
   await scrollToBottom(true); 
 
   try {
-    // 当前正在构建的消息
     let currentMsg = { role: 'assistant', content: '' ,loading: true};
     session.messages.push(currentMsg);
     
-    // 用于工具调用的临时状态
     let isHandlingTool = false;
-    let toolBuffer = ''; // 用于拼接工具 JSON 的 buffer (JSON 需要完整才能解析，不适合打字机)
     let currentToolMsg = null;
 
     await chatApi.sendMessage(
-        userMsg, 
-        session.useRag, 
-        session.useMemory, 
-        selectedModel.value, 
-        session.id,
+        userMsg, session.useRag, session.useMemory, selectedModel.value, session.id,
         (token) => {
-            // 1. 处理工具开始标记（控制指令：立即执行，不进打字机队列）
             if (token.includes(':::TOOL_START:::')) {
                 isHandlingTool = true;
-                
-                // 如果当前的 assistant 消息是空的，移除它（避免界面留白）
-                // 注意：这里检查的是 content，但因为 content 可能是异步填充的，
-                // 我们检查 typewriterQueue 里是否还有属于 currentMsg 的内容会更严谨，
-                // 但简单起见，如果 currentMsg.content 为空且队列里没有它的任务，则移除。
                 if (!currentMsg.content.trim() && !typewriterQueue.value.some(t => t.target === currentMsg)) {
                     session.messages.pop(); 
                 }
-                
-                currentToolMsg = {
-                    role: 'tool',
-                    isTool: true,
-                    expanded: true,
-                    toolName: 'Detecting...',
-                    args: '', 
-                    output: ''
-                };
+                currentToolMsg = { role: 'tool', isTool: true, expanded: true, toolName: 'Detecting...', args: '', output: '' };
                 session.messages.push(currentToolMsg);
-                
-                // 解析 JSON 参数
-                // 注意：token 包含 :::TOOL_START:::{json}:::TOOL_END:::
-                // 后端逻辑中这通常是一个完整的包发过来的，所以直接解析即可
                 const parts = token.split(':::TOOL_START:::');
                 if (parts.length > 1) {
                     const jsonPart = parts[1].split(':::TOOL_END:::')[0];
                     try {
                         const info = JSON.parse(jsonPart);
                         currentToolMsg.toolName = info.name;
-                        // 参数通常也是一次性展示，不需要打字机效果，直接赋值
                         currentToolMsg.args = JSON.stringify(info.args, null, 2);
-                    } catch(e) {
-                        currentToolMsg.toolName = 'Processing...';
-                    }
+                    } catch(e) { currentToolMsg.toolName = 'Processing...'; }
                 }
                 scrollToBottom();
-                
-            } 
-            // 2. 处理工具输出开始（控制指令）
-            else if (token.includes(':::TOOL_OUTPUT_START:::')) {
-               if (currentToolMsg) {
-                   currentToolMsg.output = ''; 
-               }
-            } 
-            // 3. 处理工具输出结束（控制指令）
-            else if (token.includes(':::TOOL_OUTPUT_END:::')) {
+            } else if (token.includes(':::TOOL_OUTPUT_START:::')) {
+               if (currentToolMsg) currentToolMsg.output = ''; 
+            } else if (token.includes(':::TOOL_OUTPUT_END:::')) {
                isHandlingTool = false;
-               if (currentToolMsg) {
-                   currentToolMsg.expanded = false; 
-               }
-               // 准备接收后续的 AI 解释，创建新的消息气泡
+               if (currentToolMsg) currentToolMsg.expanded = false; 
                currentMsg = { role: 'assistant', content: '' ,loading: true};
                session.messages.push(currentMsg);
                scrollToBottom();
-            } 
-            // 4. 普通内容处理（文本内容：进入打字机队列）
-            else {
+            } else {
                 if (isHandlingTool && currentToolMsg) {
-                    // 工具的 Output 结果，使用打字机效果（如果觉得工具输出太快不需要特效，也可以直接 +=）
-                    // currentToolMsg.output += token; 
                     pushToTypewriter(currentToolMsg, 'output', token);
                 } else {
-                    // 普通 AI 回复，使用打字机效果
                     pushToTypewriter(currentMsg, 'content', token);
                 }
             }
         }
     );
   } catch (error) {
-    console.error(error);
     session.messages.push({ role: 'assistant', content: 'Error: ' + error.message });
   } finally {
     loading.value = false;
@@ -1177,113 +855,68 @@ const sendMessage = async () => {
 };
 
 const loadPrompts = async () => {
-  try {
-    const res = await chatApi.loadPrompts();
-    // axios 直接返回 data，或者根据你的拦截器调整
-    promptList.value = res; 
-  } catch (e) {
-    ElMessage.error("Failed to load prompts");
-  }
+  try { promptList.value = await chatApi.loadPrompts(); } catch (e) {}
 };
 
-// 2. 准备添加
 const startAddPrompt = () => {
     newPrompt.value = { name: '', content: '', active: false };
     activeTab.value = 'addprompt';
 };
-
-// 3. 准备编辑
 const editPrompt = (row) => {
     newPrompt.value = { ...row };
     activeTab.value = 'addprompt';
 };
-
-// 4. 保存 (新增或更新)
 const savePrompt = async () => {
-    if (!newPrompt.value.name || !newPrompt.value.content) {
-        ElMessage.warning("Name and Content are required");
-        return;
-    }
+    if (!newPrompt.value.name || !newPrompt.value.content) return ElMessage.warning("Required fields missing");
     try {
-        if (newPrompt.value.id) {
-            await chatApi.updatePrompt(newPrompt.value.id, newPrompt.value);
-            ElMessage.success("Prompt updated");
-        } else {
-            await chatApi.savePrompt(newPrompt.value);
-            ElMessage.success("Prompt created");
-        }
+        if (newPrompt.value.id) await chatApi.updatePrompt(newPrompt.value.id, newPrompt.value);
+        else await chatApi.savePrompt(newPrompt.value);
+        ElMessage.success("Prompt saved");
         await loadPrompts();
         activeTab.value = 'prompt';
-    } catch (e) {
-        ElMessage.error("Failed to save prompt");
-    }
+    } catch (e) { ElMessage.error("Failed"); }
 };
-
-// 5. 删除
 const deletePrompt = async (id) => {
     try {
         await chatApi.deletePrompt(id);
         ElMessage.success("Prompt deleted");
         await loadPrompts();
-    } catch (e) {
-        ElMessage.error("Failed to delete prompt");
-    }
+    } catch (e) { ElMessage.error("Failed"); }
 };
-
-// 6. 激活/切换
 const activatePrompt = async (row) => {
     if (row.active) {
-        promptList.value.forEach(p => {
-            if (p.id !== row.id) p.active = false;
-        });
-        
-        row.loading = true; // 加个简单的 loading 状态防止连点
+        promptList.value.forEach(p => { if (p.id !== row.id) p.active = false; });
+        row.loading = true; 
         try {
             await chatApi.activatePrompt(row.id);
             ElMessage.success(`Activated: ${row.name}`);
-        } catch (e) {
-            row.active = !row.active; // 回滚
-            ElMessage.error("Failed to activate");
-        } finally {
+        } catch (e) { row.active = !row.active; } finally {
             row.loading = false;
-            await loadPrompts(); // 重新加载确保状态同步
+            await loadPrompts(); 
         }
     } else {
         try {
             row.active = false;
             await chatApi.updatePrompt(row.id, row);
-             ElMessage.success(`Deactivated: ${row.name}`);
-        } catch(e) {
-             row.active = true;
-             ElMessage.error("Failed to deactivate");
-        }
+        } catch(e) { row.active = true; }
     }
 };
 
 const loadRagFiles = async () => {
   ragFilesLoading.value = true;
-  try {
-    ragFiles.value = await chatApi.getRagFiles();
-  } catch (error) {
-    console.error("Failed to load RAG files");
-  } finally {
-    ragFilesLoading.value = false;
-  }
+  try { ragFiles.value = await chatApi.getRagFiles(); } catch (error) {} finally { ragFilesLoading.value = false; }
 };
 
 const handleFileUpload = async (event) => {
   const file = event.target.files[0];
   if (!file) return;
-  
   ingestLoading.value = true;
   try {
     await chatApi.uploadRagFile(file);
-    ElMessage.success("File uploaded and indexed!");
+    ElMessage.success("Indexed!");
     await loadRagFiles();
     activeRagTab.value = 'manage';
-  } catch (error) {
-    ElMessage.error("Failed to upload file");
-  } finally {
+  } catch (error) { ElMessage.error("Failed"); } finally {
     ingestLoading.value = false;
     event.target.value = ''; 
   }
@@ -1294,34 +927,22 @@ const handleTextIngest = async () => {
   ingestLoading.value = true;
   try {
     await chatApi.uploadRagText(ingestTitle.value, ingestContent.value);
-    ElMessage.success("Knowledge added!");
-    ingestContent.value = '';
-    ingestTitle.value = '';
+    ElMessage.success("Added!");
+    ingestContent.value = ''; ingestTitle.value = '';
     await loadRagFiles();
     activeRagTab.value = 'manage';
-  } catch (error) {
-    ElMessage.error("Failed to ingest text");
-  } finally {
-    ingestLoading.value = false;
-  }
+  } catch (error) { ElMessage.error("Failed"); } finally { ingestLoading.value = false; }
 };
 
 const deleteRagFile = async (filename) => {
   try {
     await chatApi.deleteRagFile(filename);
-    ElMessage.success("File deleted");
+    ElMessage.success("Deleted");
     await loadRagFiles();
-  } catch (error) {
-    ElMessage.error("Failed to delete file");
-  }
+  } catch (error) {}
 };
 
-watch(activeRagTab, (val) => {
-  if (val==='manage') {
-    loadRagFiles();
-  }
-});
-
+watch(activeRagTab, (val) => { if (val==='manage') loadRagFiles(); });
 watch(activeTab, (val) => {
   if (val === 'model') loadRagFiles();
   if (val === 'rag'){ activeRagTab.value='manage'; loadRagFiles(); }
@@ -1332,198 +953,129 @@ watch(activeTab, (val) => {
 const formatSize = (bytes) => {
   if (bytes === 0) return '0 B';
   const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + ['B', 'KB', 'MB', 'GB'][i];
 };
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 
-/* Global Reset & Container */
+/* --- Reset & Layout --- */
 .app-container {
   height: 100vh;
   width: 100vw;
-  background-color: #eef2f6;
+  background-color: #f8fafc; /* Slate 50 */
   display: flex;
   justify-content: center;
   align-items: center;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #1e293b;
 }
 
 .chat-window {
-  width: 90%;
-  max-width: 95vw;
-  height: 90vh;
+  width: 95%;
+  max-width: 1400px;
+  height: 92vh;
   background: white;
-  border-radius: 20px;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   display: flex;
   overflow: hidden;
-  position: relative;
+  border: 1px solid #e2e8f0;
 }
 
-/* Sidebar */
+/* --- Sidebar --- */
 .sidebar {
-  width: 280px;
-  background: #111827;
-  color: #fff;
+  width: 260px;
+  background: #f1f5f9; /* Slate 100 */
   display: flex;
   flex-direction: column;
-  transition: width 0.3s ease;
-  border-right: 1px solid #1f2937;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-right: 1px solid #e2e8f0;
 }
 
-.sidebar.collapsed {
-  width: 70px;
-}
+.sidebar.collapsed { width: 64px; }
 
 .sidebar-header {
-  height: 35px;
+  height: 60px;
   display: flex;
   align-items: center;
-  padding: 0 20px;
   justify-content: space-between;
-  border-bottom: 1px solid #1f2937;
+  padding: 0 16px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .logo {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-weight: 700;
-  font-size: 16px;
-  color: #fff;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  color: #0f172a;
 }
+.logo .el-icon { background: #0f172a; padding: 4px; border-radius: 6px; box-sizing: content-box; }
 
 .sidebar-content {
   flex: 1;
-  padding: 10px 16px; 
+  padding: 16px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-.section-title {
-  font-size: 10px;
-  text-transform: uppercase;
-  color: #6b7280;
-  margin-bottom: 10px;
-  font-weight: 600;
-  letter-spacing: 1px;
-}
-
-.control-card {
-  background: #1f2937;
-  padding: 12px;
-  border-radius: 12px;
-  margin-bottom: 12px;
-}
-
-.control-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 5px;
-}
-
-.label {
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.sidebar-btn {
+.sidebar-btn.primary {
   width: 100%;
   justify-content: flex-start;
-  background: transparent;
-  border: 1px solid #374151;
-  color: #d1d5db;
-  margin-left: 0 !important;
-  height: 30px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  margin-bottom: 20px;
+  font-weight: 500;
 }
+.sidebar-btn.primary:hover { border-color: #2563eb; color: #2563eb; background: #eff6ff; }
 
-.sidebar-btn:hover {
-  background: #374151;
-  color: #fff;
-}
-
-.sidebar-btn.primary {
-  background: #4f46e5;
-  border-color: #4f46e5;
-  color: white;
-}
-
-.sidebar-btn.primary:hover {
-  background: #4338ca;
-}
-
-.session-actions {
-  margin-bottom: 10px;
+.section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  margin-bottom: 8px;
+  padding-left: 4px;
 }
 
 .sessions-list {
-  flex: 2;
+  flex: 1;
   overflow-y: auto;
-  margin-bottom: 10px;
-  padding-right: 5px;
-}
-
-.sessions-list::-webkit-scrollbar {
-  width: 4px;
-}
-
-.sessions-list::-webkit-scrollbar-thumb {
-  background: #374151;
-  border-radius: 2px;
+  margin-bottom: 20px;
 }
 
 .session-item {
   display: flex;
   align-items: center;
-  padding: 10px 12px;
-  border-radius: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.2s;
-  color: #9ca3af;
-  gap: 10px;
-  margin-bottom: 4px;
+  color: #475569;
   font-size: 13px;
+  margin-bottom: 2px;
+  transition: background 0.15s;
 }
+.session-item:hover { background: #e2e8f0; }
+.session-item.active { background: #fff; color: #2563eb; font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.session-title-text { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0 8px; }
+.delete-session { opacity: 0; color: #94a3b8; }
+.session-item:hover .delete-session { opacity: 1; }
+.delete-session:hover { color: #ef4444; }
 
-.session-item:hover {
-  background: #1f2937;
-  color: #fff;
+.control-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
 }
+.control-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 500; color: #334155; }
 
-.session-item.active {
-  background: #1f2937;
-  color: #6366f1;
-  font-weight: 500;
-}
-
-.session-title-text {
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.delete-session {
-  opacity: 0;
-  transition: opacity 0.2s;
-  color: #9ca3af;
-}
-
-.session-item:hover .delete-session {
-  opacity: 1;
-}
-
-.delete-session:hover {
-  color: #ef4444;
-}
-
-/* Chat Area */
+/* --- Chat Area --- */
 .chat-area {
   flex: 1;
   display: flex;
@@ -1532,785 +1084,228 @@ const formatSize = (bytes) => {
 }
 
 .chat-header {
-  height: 70px;
-  border-bottom: 1px solid #f3f4f6;
-  padding: 0 30px;
+  height: 60px;
+  border-bottom: 1px solid #f1f5f9;
+  padding: 0 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
-
-.header-info h3 {
-  margin: 0;
-  font-size: 18px;
-  color: #111827;
-}
-
-.model-badge {
-  font-size: 11px;
-  background: #e0e7ff;
-  color: #4f46e5;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-weight: 600;
-  margin-left: 8px;
-}
-
-.messages-container {
-  flex: 1;
-  padding: 40px;
-  overflow-y: auto;
-  background: #fff;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  /* 新增：防止内容插入时的视口跳动 */
-  overflow-anchor: auto !important; 
-  /* 新增：平滑滚动，但在JS高频控制时设为 auto 可能更好，这里保持默认即可 */
-}
-
-/* Empty State */
-.empty-state {
-  text-align: center;
-  margin-top: 100px;
-  color: #374151;
-}
-
-.icon-wrapper {
-  background: #eef2ff;
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 20px;
-}
-
-.empty-state h2 {
-  font-size: 24px;
-  margin-bottom: 10px;
-}
-
-.suggestions {
-  margin-top: 30px;
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-}
-
-.suggestion-tag {
-  cursor: pointer;
-  transition: all 0.2s;
-  padding: 8px 16px;
-  height: auto;
-  font-size: 13px;
-}
-
-.suggestion-tag:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-}
+.header-info { display: flex; align-items: center; }
+.header-info h3 { font-size: 16px; font-weight: 600; margin: 0; }
+.model-badge { font-size: 11px; background: #f1f5f9; color: #64748b; padding: 2px 8px; border-radius: 4px; margin-left: 8px; border: 1px solid #e2e8f0;}
 
 /* Messages */
-.message-row {
+.messages-container {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
   display: flex;
-  gap: 16px;
-  max-width: 80%;
+  flex-direction: column;
+  gap: 20px;
+  scroll-behavior: smooth;
 }
 
-.message-row.user {
-  margin-left: auto;
-  flex-direction: row-reverse;
+.empty-state { text-align: center; margin-top: 10vh; color: #64748b; }
+.icon-wrapper { background: #eff6ff; width: 64px; height: 64px; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
+.empty-state h2 { font-size: 18px; font-weight: 600; color: #1e293b; margin-bottom: 24px; }
+.suggestions { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+.suggestion-card {
+  border: 1px solid #e2e8f0;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  cursor: pointer;
+  background: #fff;
+  transition: all 0.2s;
 }
+.suggestion-card:hover { border-color: #2563eb; color: #2563eb; }
+
+.message-row { display: flex; gap: 12px; max-width: 90%; margin-bottom: 8px; }
+.message-row.user {
+  flex-direction: row-reverse;
+  align-self: flex-end; /* 关键：让用户消息靠右对齐 */
+  margin-left: auto; /* 辅助 flexbox */
+}
+.message-row.assistant { align-self: flex-start; }
+
+.avatar { flex-shrink: 0; margin-top: 2px; }
+.avatar-img { background: #f1f5f9; color: #64748b; }
+.avatar-img.user { background: #dbeafe; color: #2563eb; }
+
+.message-content-wrapper { display: flex; flex-direction: column; max-width: 100%; min-width: 0; }
 
 .message-bubble {
-  padding: 10px 10px;
+  padding: 10px 16px;
   font-size: 15px;
-  line-height: 1.0;
+  line-height: 1.6; /* 增加行高 */
   position: relative;
-   /* 新增：保留空白符和换行符，自动换行 */
-  white-space: pre-wrap; 
-  /* 新增：防止长单词撑开导致抖动 */
-  word-break: break-word; 
-  /* 移除：max-width: 100% (之前建议移除的，这里确认一下) */
+  word-break: break-word;
+  width: fit-content; /* 关键：气泡宽度适应内容 */
 }
 
+/* User Bubble Style */
 .user .message-bubble {
-  background: #4f46e5;
+  background: #2563eb; /* 纯蓝 */
   color: white;
-  border-radius: 20px 20px 4px 20px;
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+  border-radius: 12px 12px 2px 12px; /* 更小的圆角 */
+  margin-left: auto; /* 确保靠右 */
 }
 
 .assistant .message-bubble {
-  background: #f3f4f6;
-  color: #1f2937;
-  border-radius: 20px 20px 20px 4px;
+  background: #f8fafc;
+  color: #1e293b;
+  border: 1px solid #f1f5f9;
+  border-radius: 2px 12px 12px 12px;
 }
 
-.mcp-tool-message {
-  background: #e0f2fe; /* 淡蓝色背景 */
-  border: 1px solid #90cdf4; /* 蓝色边框 */
-  color: #2b6cb0; /* 深蓝色文字 */
-  font-style: italic; /* 斜体 */
-  border-radius: 20px 20px 20px 4px; /* 保持圆角 */
-}
-
-.avatar {
-  margin-top: auto; 
-  margin-bottom: 8px;
-}
-
-.timestamp {
-  font-size: 10px;
-  color: #9ca3af;
-  margin-top: 5px;
-  display: block;
-  text-align: right;
-}
-
-.user .timestamp {
-  text-align: right;
-  color: #c7d2fe;
-}
+.timestamp { font-size: 10px; color: #94a3b8; margin-top: 4px; opacity: 0.8; }
+.user .timestamp { text-align: right; }
 
 /* Typing Indicator */
-.typing-indicator span {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  background: #9ca3af;
-  border-radius: 50%;
-  margin: 0 2px;
-  animation: bounce 1.4s infinite ease-in-out;
-}
-
+.typing-indicator { display: inline-flex; gap: 4px; padding: 10px 0; }
+.typing-indicator span { width: 6px; height: 6px; background: #cbd5e1; border-radius: 50%; animation: bounce 1.4s infinite; }
 .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
 .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+@keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
 
-@keyframes bounce {
-  0%, 80%, 100% { transform: scale(0); }
-  40% { transform: scale(1); }
+/* Tool Card Style */
+.tool-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+  width: 100%;
+  max-width: 600px;
+  margin-top: 5px;
 }
+.tool-header {
+  padding: 8px 12px;
+  background: #f8fafc;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  border-bottom: 1px solid transparent;
+  font-size: 13px;
+}
+.tool-header:hover { background: #f1f5f9; border-color: #e2e8f0; }
+.tool-title { display: flex; align-items: center; gap: 6px; color: #475569; }
+.tool-icon { color: #64748b; }
+.expand-icon { font-size: 12px; color: #94a3b8; transition: transform 0.2s; }
+.expand-icon.expanded { transform: rotate(90deg); }
+.tool-details { padding: 12px; border-top: 1px solid #e2e8f0; background: #fff; }
+.detail-section { margin-bottom: 12px; }
+.detail-section:last-child { margin-bottom: 0; }
+.section-label { font-size: 10px; text-transform: uppercase; color: #94a3b8; font-weight: 600; margin-bottom: 4px; letter-spacing: 0.5px; }
 
 /* Input Section */
-.input-section {
-  padding: 24px 30px;
-  border-top: 1px solid #f3f4f6;
-}
-
-.input-wrapper {
-  position: relative;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
-  border-radius: 30px;
-}
-
-.modern-input :deep(.el-input__wrapper) {
-  border-radius: 30px;
-  padding: 6px 15px;
-  box-shadow: 0 0 0 1px #e5e7eb;
-}
-
-.modern-input :deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 2px #4f46e5;
-}
-
-.send-btn-inner {
-  transform: scale(0.9);
-}
-
-.input-footer {
-  text-align: center;
-  font-size: 11px;
-  color: #9ca3af;
-  margin-top: 10px;
-}
-
-/* Settings Dialog */
-.premium-dialog :deep(.el-dialog__body) {
-  padding: 0 !important;
-}
-
-.dialog-layout {
-  display: flex;
-  height: 500px;
-  background: #f8fafc;
-  border-radius: 0 0 16px 16px;
-  overflow: hidden;
-}
-
-.settings-sidebar {
-  width: 20%;
-  border-right: 1px solid #e2e8f0;
-  padding: 20px 0;
-}
-
-.settings-tab {
-  padding: 12px 24px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  cursor: pointer;
-  transition: all 0.3s;
-  color: #64748b;
-  font-weight: 500;
-  font-size: 14px;
-}
-
-.settings-tab:hover {
-  background: #f1f5f9;
-  color: #4f46e5;
-}
-
-.settings-tab.active {
-  background: #eef2ff;
-  color: #4f46e5;
-  border-right: 3px solid #4f46e5;
-}
-
-.settings-main {
-  flex: 1;
-  padding: 30px;
-  overflow: hidden;
-}
-
-.settings-content {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.content-header {
-  margin-bottom: 20px;
-}
-
-.content-header h3 {
-  margin: 0 0 4px;
-  font-size: 18px;
-  color: #0f172a;
-}
-
-.content-header p {
-  margin: 0;
-  font-size: 13px;
-  color: #64748b;
-}
-
-.table-container {
-  flex: 1;
+.input-section { padding: 20px 24px; border-top: 1px solid #f1f5f9; background: #fff; }
+.input-container { position: relative; }
+.chat-input :deep(.el-input__wrapper) {
+  border-radius: 8px;
+  padding: 10px 12px;
+  box-shadow: 0 0 0 1px #e2e8f0;
   background: #fff;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  padding: 10px;
-  margin-bottom: 20px;
-  min-height: 0; 
 }
+.chat-input :deep(.el-input__wrapper.is-focus) { box-shadow: 0 0 0 2px #2563eb; }
+.send-btn { background-color: #f1f5f9; border: none; color: #64748b; transition: all 0.2s; }
+.send-btn:hover { background-color: #2563eb; color: #fff; }
+.input-footer { text-align: center; font-size: 11px; color: #94a3b8; margin-top: 8px; }
 
-.footer-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding-top: 20px;
-  border-top: 1px solid #e2e8f0;
-}
-
-.gradient-btn {
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
-  border: none !important;
-  color: white !important;
-}
-
-.gradient-btn:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
-}
-
-.premium-form :deep(.el-form-item__label) {
-  font-weight: 600;
-  color: #334155;
-  font-size: 13px;
-  margin-bottom: 6px;
-}
-
-.model-info .model-name {
-  font-weight: 600;
-  color: #0f172a;
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
-.rag-dialog-container {
-  padding: 10px 0;
-}
-
-.rag-tab-content {
-  padding-top: 20px;
-  min-height: 350px;
-}
-
-.upload-zone {
-  border: 2px dashed #e2e8f0;
-  border-radius: 16px;
-  padding: 40px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  background: #f8fafc;
-}
-
-.upload-zone:hover {
-  border-color: #6366f1;
-  background: #f1f5f9;
-}
-
-.upload-hint {
-  font-size: 11px;
-  color: #94a3b8;
-  margin-top: 10px;
-}
-
-.upload-status {
-  margin-top: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  color: #6366f1;
-  font-weight: 500;
-}
-
-.margin-bottom {
-  margin-bottom: 20px;
-}
-
-.tab-actions {
-  margin-top: 20px;
-}
-
-.custom-table.smaller {
-  font-size: 13px;
-}
-
-.custom-tabs :deep(.el-tabs__item) {
-  font-weight: 600;
-  color: #94a3b8;
-}
-
-.custom-tabs :deep(.el-tabs__item.is-active) {
-  color: #6366f1;
-}
-
-.custom-tabs :deep(.el-tabs__active-bar) {
-  background-color: #6366f1;
-}
-
-.custom-tabs :deep(.el-tabs__active-bar) {
-    background-color: #6366f1;
-  }
-  
-  .settings-content .tool-list {
-    flex: 1; /* Make it take available vertical space */
-    overflow-y: auto; /* Enable scrolling if content overflows */
-    padding-right: 10px; /* Add some padding for scrollbar */
-    margin-bottom: 20px; /* Space before footer actions */
-  }
-  
-  .settings-content .tool-list::-webkit-scrollbar {
-    width: 6px;
-  }
-  
-  .settings-content .tool-list::-webkit-scrollbar-thumb {
-    background: #d1d5db;
-    border-radius: 3px;
-  }
-  
-  .tool-header {
-    display: flex; /* Use flexbox for alignment */
-    align-items: center;
-    gap: 10px;
-    font-size: 14px;
-    font-weight: bold;
-    color: #334155;
-    padding: 10px 0;
-  }
-  
-  .tool-name-icon {
-    font-size: 16px;
-    color: #6366f1;
-  }
-  
-  .tool-details {
-    padding: 10px 15px;
-    background-color: #f8fafc;
-    border-radius: 8px;
-    margin-top: 5px;
-  }
-  
-  .tool-details .description {
-    display: block; /* Ensure description takes full width */
-    font-size: 13px;
-    color: #64748b;
-    margin-bottom: 15px;
-  }
-  
-  .tool-inputs .input-item {
-    margin-bottom: 15px;
-    display: flex;
-    flex-wrap: wrap; /* Allow items to wrap */
-    align-items: center;
-    gap: 8px; /* Space between input elements */
-  }
-  
-  .tool-inputs .input-item .input-name {
-    font-weight: 600;
-    color: #334155;
-    font-size: 13px;
-  }
-  
-  .tool-inputs .input-item .input-type {
-    font-size: 12px;
-    color: #94a3b8;
-  }
-  
-  .tool-inputs .input-item .input-required {
-    font-size: 11px;
-    color: #ef4444;
-    background-color: #fee2e2;
-    padding: 2px 6px;
-    border-radius: 4px;
-  }
-
-   .tool-inputs .input-item .input-optional {
-    font-size: 11px;
-    color: #3b82f6;
-    background-color: #dbeafe;
-    padding: 2px 6px;
-    border-radius: 4px;
-  }
-
-  
-  .tool-inputs .input-item .input-desc {
-    flex-basis: 100%; /* Make description take full width */
-    font-size: 12px;
-    color: #9ca3ba;
-    margin-top: 5px;
-    margin-bottom: 0;
-  }
-  
-  .tool-inputs .input-item :deep(.el-input) {
-    flex: 1; /* Allow input to grow */
-    min-width: 150px; /* Minimum width for input */
-  }
-  
-  .tool-function {
-    margin-top: 15px;
-    text-align: right;
-  }
-  
-  .tool-response {
-    margin-top: 20px;
-    background-color: #e2e8f0;
-    padding: 15px;
-    border-radius: 8px;
-    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
-    font-size: 13px;
-    color: #1a202c;
-    white-space: pre-wrap; /* Preserve whitespace and wrap text */
-    word-break: break-all; /* Break long words */
-  }
-
-  .tool-response pre {
-    overflow: auto;
-  }
-  
-  .tool-response h4 {
-    margin-top: 0;
-    margin-bottom: 10px;
-    color: #334155;
-  }
-  
-  .el-collapse {
-    border-top: none;
-    border-bottom: none;
-  }
-  
-  .el-collapse-item :deep(.el-collapse-item__header) {
-    border-bottom: 1px solid #e2e8f0;
-    background-color: transparent;
-  }
-  
-  .el-collapse-item :deep(.el-collapse-item__wrap) {
-    background-color: transparent;
-    border-bottom: none;
-  }
-  
-  .el-collapse-item :deep(.el-collapse-item__content) {
-    padding-bottom: 0;
-  }
-
-  /* 新增样式：工具卡片 */
-  .tool-row {
-    width: 100%;
-    display: flex;
-    justify-content: flex-start; /* 左对齐 */
-    margin-bottom: 10px;
-  }
-
-  .tool-card {
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    background-color: #f8fafc;
-    overflow: hidden;
-    width: 100%;
-    max-width: 600px; /* 限制卡片宽度 */
-    box-shadow: 0 2px 4px rgba(0,0,0,0.03);
-  }
-
-  .tool-header {
-    padding: 10px 15px;
-    background-color: #ffffff;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: pointer;
-    border-bottom: 1px solid transparent;
-    transition: all 0.2s;
-  }
-
-  .tool-header:hover {
-    background-color: #f1f5f9;
-  }
-
-  .tool-title {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    color: #475569;
-  }
-
-  .tool-icon {
-    color: #6366f1;
-  }
-
-  .expand-icon {
-    font-size: 12px;
-    color: #94a3b8;
-    transition: transform 0.3s;
-  }
-
-  .expand-icon.expanded {
-    transform: rotate(90deg);
-  }
-
-  .tool-details {
-    padding: 15px;
-    border-top: 1px solid #e2e8f0;
-    background-color: #f8fafc;
-  }
-
-  .detail-section {
-    margin-bottom: 12px;
-  }
-
-  .detail-section:last-child {
-    margin-bottom: 0;
-  }
-
-  .section-label {
-    font-size: 11px;
-    text-transform: uppercase;
-    color: #64748b;
-    font-weight: 600;
-    margin-bottom: 4px;
-  }
-
-  .code-block {
-    font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-    font-size: 12px;
-    padding: 10px;
-    border-radius: 6px;
-    overflow-x: auto;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    margin: 0;
-  }
-
-  .code-block.json {
-    background-color: #e0e7ff; /* 浅蓝背景 */
-    color: #3730a3;
-    border: 1px solid #c7d2fe;
-  }
-
-  .code-block.xml {
-    background-color: #2d2b55; /* 深色背景类似 IDE */
-    color: #e2e8f0;
-    border: 1px solid #1e293b;
-  }
-
-  /* 消息容器需要适配 */
-  .message-bubble-container {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-  }
-
-  /* 调整原来的 message-bubble */
-  .message-bubble {
-      /* 保持原来的样式，但去掉 max-width 限制，让 container 控制 */
-      max-width: 100%; 
-  }
-
-  /* 针对 HTML/XML 渲染的样式 */
-.xml-render-block {
-    background-color: #ffffff;
-    border: 1px solid #e2e8f0;
-    padding: 15px;
-    border-radius: 6px;
-    margin-top: 5px;
-    overflow-x: auto;
-    font-size: 14px;
-    color: #334155;
-}
-
-/* 确保 tool-card 能够容纳较宽的内容 */
-.tool-card {
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    background-color: #f8fafc;
-    overflow: hidden;
-    width: 100%;
-    /* max-width: 600px;  移除最大宽度限制，以便 XML 渲染 */
-    box-shadow: 0 2px 4px rgba(0,0,0,0.03);
-    margin-bottom: 0; /* 头像对齐调整 */
-}
-
-/* 调整 Tool Row 的对齐 */
-.tool-row {
-    width: 100%;
-    display: flex;
-    gap: 16px; /* 保持与 message-row 一致的间距 */
-    margin-bottom: 10px;
-}
-
-/* 隐藏头像时的占位 */
-.avatar {
-    flex-shrink: 0; /* 防止头像被压缩 */
-    width: 36px;
-    height: 36px;
-    margin-top: 0; /* 对齐顶部 */
-}
-
-.message-bubble-container {
-    flex: 1; /* 占据剩余空间 */
-    min-width: 0; /* 防止 flex 子项溢出 */
-}
-
-/* 代码块样式微调 */
-.code-block {
-    font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-    font-size: 12px;
-    padding: 10px;
-    border-radius: 6px;
-    overflow-x: auto;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    margin: 0;
-    max-height: 300px; /* 防止过长 */
-    overflow-y: auto;
-}
-
-/* 针对 XML/HTML 渲染区域的特殊处理 */
-.xml-content {
-  /* 防止未闭合的标签撑破布局 */
-  overflow-x: auto; 
-  /* 即使是 HTML，也尽量保留一点排版稳定性 */
-  min-height: 24px;
-}
-
-/* 确保 v-html 内部的元素样式正常 */
-.xml-content :deep(p) {
-  margin: 0 0 10px 0;
-}
-
-.xml-content :deep(pre) {
-  background: #2d2b55;
-  color: #fff;
-  padding: 10px;
-  border-radius: 6px;
-  overflow-x: auto;
-}
-.full-height{
-  height: 200px;
-}
-
-.full-height :deep(.el-textarea__inner) {
-    height: 100%;
-    font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-    line-height: 1.5;
-}
-
-/* Markdown 内容样式修正 */
+/* --- Markdown Styling (The fix for formatted content) --- */
 .markdown-body {
+  font-family: 'Inter', sans-serif;
   font-size: 15px;
-  line-height: 1.0;
+  color: #1e293b;
+  line-height: 1.6;
 }
+/* User bubble markdown specifics (White text) */
+.user .markdown-body { color: white; }
+.user .markdown-body :deep(a) { color: #bfdbfe; text-decoration: underline; }
+.user .markdown-body :deep(code) { background: rgba(255,255,255,0.2); color: white; }
 
-/* 段落间距 */
-.markdown-body :deep(p) {
-  margin-bottom: 10px;
-}
-.markdown-body :deep(p:last-child) {
-  margin-bottom: 0;
-}
-
-/* 列表样式 */
-.markdown-body :deep(ul), .markdown-body :deep(ol) {
-  padding-left: 20px;
-  margin-bottom: 10px;
-}
-
-/* 代码块样式 */
+/* General Markdown Elements */
+.markdown-body :deep(p) { margin: 0; }
+.markdown-body :deep(p:last-child) { margin-bottom: 0; }
+.markdown-body :deep(h1), .markdown-body :deep(h2), .markdown-body :deep(h3) { margin-top: 1em; margin-bottom: 0.5em; font-weight: 600; line-height: 1.25; }
+.markdown-body :deep(ul), .markdown-body :deep(ol) { padding-left: 1.5em; margin-bottom: 0.8em; }
+.markdown-body :deep(li) { margin-bottom: 0.2em; }
 .markdown-body :deep(pre) {
-  background-color: #2d2d2d;
-  color: #ccc;
-  padding: 10px;
+  background: #1e293b; /* Dark bg for code blocks */
+  color: #e2e8f0;
+  padding: 12px;
   border-radius: 6px;
   overflow-x: auto;
-  font-family: 'Consolas', 'Monaco', monospace;
+  margin: 0.8em 0;
+  font-size: 13px;
+  font-family: 'Menlo', monospace;
 }
-
 .markdown-body :deep(code) {
-  background-color: rgba(175, 184, 193, 0.2);
+  font-family: 'Menlo', monospace;
+  font-size: 0.9em;
+  background: #f1f5f9;
+  color: #0f172a;
   padding: 2px 4px;
   border-radius: 4px;
-  font-family: monospace;
 }
+.markdown-body :deep(pre) :deep(code) { background: transparent; padding: 0; color: inherit; }
+.markdown-body :deep(blockquote) { border-left: 3px solid #cbd5e1; margin: 0; padding-left: 1em; color: #64748b; }
+.markdown-body :deep(a) { color: #2563eb; text-decoration: none; }
+.markdown-body :deep(a:hover) { text-decoration: underline; }
+.xml-content { overflow-x: auto; background: #f8fafc; padding: 10px; border-radius: 4px; border: 1px solid #e2e8f0; font-family: monospace; font-size: 13px; }
 
-.markdown-body :deep(pre) :deep(code) {
-  background-color: transparent;
-  padding: 0;
+/* --- Settings Dialog (Clean Style) --- */
+.settings-dialog :deep(.el-dialog__body) { padding: 0 !important; }
+.dialog-layout { display: flex; height: 500px; background: #fff;}
+.settings-sidebar { width: 20%; border-right: 1px solid #f1f5f9; padding: 16px 8px; background: #f8fafc; }
+.settings-tab {
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  border-radius: 6px;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 4px;
 }
+.settings-tab:hover { background: #e2e8f0; color: #1e293b; }
+.settings-tab.active { background: #fff; color: #2563eb; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.settings-main { flex: 1; padding: 24px; overflow: hidden; display: flex; flex-direction: column; }
 
-/* 链接样式 */
-.markdown-body :deep(a) {
-  color: #409eff;
-  text-decoration: none;
-}
-.markdown-body :deep(a:hover) {
-  text-decoration: underline;
-}
+.content-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #f1f5f9; padding-bottom: 16px; }
+.content-header h3 { margin: 0; font-size: 18px; font-weight: 600; color: #1e293b; }
 
+.table-wrapper { flex: 1; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+.settings-form { max-width: 600px; }
+.settings-form :deep(.el-form-item__label) { font-weight: 500; color: #475569; }
+.footer-actions { margin-top: auto; padding-top: 16px; display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #f1f5f9; }
+
+/* Upload Zone */
+.upload-zone { border: 2px dashed #e2e8f0; border-radius: 8px; padding: 30px; text-align: center; cursor: pointer; background: #f8fafc; transition: 0.2s; }
+.upload-zone:hover { border-color: #2563eb; background: #eff6ff; }
+.upload-zone p { margin: 10px 0 0; color: #64748b; font-size: 13px; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: #e2e8f0; }
+.status-dot.active { background: #10b981; }
+
+/* MCP Tools Panel */
+.tool-list-item { font-weight: 600; color: #334155; }
+.tool-panel { padding: 8px 0; }
+.tool-panel .desc { color: #64748b; font-size: 13px; margin: 0 0 12px; }
+.tool-inputs-grid { background: #f8fafc; border: 1px solid #f1f5f9; padding: 12px; border-radius: 6px; }
+.tool-input-row { display: flex; align-items: center; margin-bottom: 8px; gap: 10px; }
+.tool-input-row:last-child { margin-bottom: 0; }
+.input-meta { width: 120px; font-size: 12px; color: #475569; display: flex; flex-direction: column; }
+.fname { font-weight: 600; } .ftype { color: #94a3b8; font-size: 10px; } .freq { color: #ef4444; }
+.tool-result { margin-top: 12px; background: #f1f5f9; padding: 12px; border-radius: 6px; font-size: 12px; font-family: monospace; max-height: 200px; overflow: auto; }
+
+/* Full Height Form Helpers */
+.full-h { height: 100%; display: flex; flex-direction: column; }
+.flex-grow-item { flex: 1; display: flex; flex-direction: column; margin-bottom: 0 !important; }
+.flex-grow-item :deep(.el-form-item__content) { flex: 1; }
+.full-h-textarea { height: 100%; }
+.full-h-textarea :deep(.el-textarea__inner) { height: 100% !important; font-family: monospace; }
+.mt-3 { margin-top: 12px; } .mb-3 { margin-bottom: 12px; } .text-right { text-align: right; }
 </style>

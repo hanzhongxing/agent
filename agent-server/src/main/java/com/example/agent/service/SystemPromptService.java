@@ -104,9 +104,6 @@ public class SystemPromptService extends BaseService {
     private synchronized void saveConfigs() {
         try {
             File file = new File(agentConfig.getSystemPromptFilePath());
-            if (file.getParentFile() != null) {
-                file.getParentFile().mkdirs();
-            }
             objectMapper.writerWithDefaultPrettyPrinter().writeValue(file, prompts);
         } catch (IOException e) {
             logger.error("Failed to save System Prompts", e);

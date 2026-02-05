@@ -29,7 +29,6 @@ public class McpService extends BaseService{
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final List<McpInfo> mcpInfos = new CopyOnWriteArrayList<>();
-    private final RestClient restClient = RestClient.create();
 
     @PostConstruct
     public void init() {
@@ -80,13 +79,6 @@ public class McpService extends BaseService{
     private synchronized void saveConfigs() {
         try {
             File file = new File(agentConfig.getMcpFilePath());
-            if (file.getParentFile() != null) {
-                boolean flg=file.getParentFile().mkdirs();
-                if(!flg){
-                    logger.error("Failed to save MCP configs file getParentFile is null");
-                    return;
-                }
-            }
             objectMapper.writerWithDefaultPrettyPrinter().writeValue(file, mcpInfos);
         } catch (IOException e) {
             logger.error("Failed to save MCP configs", e);

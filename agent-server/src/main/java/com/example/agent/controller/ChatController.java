@@ -3,6 +3,7 @@ package com.example.agent.controller;
 import com.example.agent.model.ModelInfo;
 import com.example.agent.model.SystemPrompt;
 import com.example.agent.service.*;
+import com.example.agent.util.DateUtil;
 import com.example.agent.util.StringUtils;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.agent.tool.ToolSpecification;
@@ -70,6 +71,8 @@ public class ChatController {
             }
         }
         final List<ChatMessage> chatMessages = new ArrayList<>();
+
+        chatMessages.add(new SystemMessage("当前的日期时间是 "+ DateUtil.getCurrentDateTime()));
 
         SystemPrompt activePrompt = systemPromptService.getActivePrompt();
         if (activePrompt != null && StringUtils.hasText(activePrompt.getContent())) {

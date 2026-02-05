@@ -271,7 +271,7 @@
                         <el-table-column prop="size" label="Size" width="100">
                           <template #default="scope">{{ formatSize(scope.row.size) }}</template>
                         </el-table-column>
-                        <el-table-column width="80" align="center">
+                        <el-table-column width="80" label="Actions" align="center">
                           <template #default="scope">
                             <el-button link type="danger" size="small" @click="deleteRagFile(scope.row.name)">Delete</el-button>
                           </template>

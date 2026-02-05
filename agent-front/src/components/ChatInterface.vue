@@ -711,7 +711,7 @@ const loadCurrentSessionMessages = async () => {
             }
         }
         currentSession.value.messages = processedMessages;
-        scrollToBottom();
+        scrollToBottom(true);
     } catch (e) {}
 };
 

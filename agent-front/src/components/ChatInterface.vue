@@ -200,6 +200,7 @@
 
         <div class="settings-main">
           <transition name="fade" mode="out-in">
+
             <!-- MODEL TAB -->
             <div v-if="activeTab === 'model'" key="model" class="settings-content">
               <div class="content-header">
@@ -215,7 +216,7 @@
                       <el-tag size="small" v-if="scope.row.embed">Yes</el-tag>
                     </template>
                   </el-table-column>
-                  <el-table-column label="Actions" width="100" align="center">
+                  <el-table-column label="Actions" width="120" align="center">
                     <template #default="scope">
                       <el-button link type="primary" size="small" @click="editModel(scope.row)">Edit</el-button>
                       <el-button link type="danger" size="small" @click="deleteModel(scope.row.id)">Delete</el-button>

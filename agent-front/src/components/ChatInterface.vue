@@ -108,10 +108,12 @@
                       class="xml-content">
                 </div>
 
-                <!-- 分支 2: 如果是普通文本，使用插值渲染（无抖动，且支持 pre-wrap 换行） -->
-                <div v-else>
-                  {{ msg.content }}
+                <!-- ⭐️ 普通 AI 回复改用 Markdown 渲染 -->
+                <div v-else 
+                    class="markdown-body" 
+                    v-html="renderMarkdown(msg.content)">
                 </div>
+
                </div>
 
                <!-- 2. 工具调用过程展示 (Tool Card) -->
@@ -529,6 +531,10 @@
 
 <script setup>
 import { ref, nextTick, onMounted, computed, watch } from 'vue';
+import MarkdownIt from 'markdown-it';
+import hljs from 'highlight.js';
+import 'highlight.js/styles/atom-one-dark.css'; // 引入代码高亮样式
+
 import { chatApi } from '../services/api';
 import axios from 'axios'; // Ensure axios is imported if not used via chatApi wrapper
 import { ElMessage } from 'element-plus';
@@ -539,6 +545,23 @@ import {
   ChatLineRound, Close, UploadFilled, Loading,
   Connection, Monitor,ArrowRight,MagicStick
 } from '@element-plus/icons-vue';
+
+const md = new MarkdownIt({
+  html: true,
+  linkify: true,
+  breaks: true,
+  highlight: function (str, lang) {
+    if (lang && hljs.getLanguage(lang)) {
+      try {
+        return '<pre class="hljs"><code>' +
+               hljs.highlight(str, { language: lang, ignoreIllegals: true }).value +
+               '</code></pre>';
+      } catch (__) {}
+    }
+    // 默认回退
+    return '<pre class="hljs"><code>' + md.utils.escapeHtml(str) + '</code></pre>';
+  }
+});
 
 // State
 const sessions = ref([
@@ -569,6 +592,11 @@ const isTyping = ref(false);     // 标记打字机循环是否正在运行
 const promptList = ref([]);
 const newPrompt = ref({ name: '', content: '', active: false });
 const isEditingPrompt = computed(() => !!newPrompt.value.id);
+
+const renderMarkdown = (text) => {
+  if (!text) return '';
+  return md.render(text);
+};
 
 // --- 新增：打字机处理循环 ---
 const processTypewriter = () => {
@@ -2232,6 +2260,57 @@ const formatSize = (bytes) => {
     height: 100%;
     font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
     line-height: 1.5;
+}
+
+/* Markdown 内容样式修正 */
+.markdown-body {
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* 段落间距 */
+.markdown-body :deep(p) {
+  margin-bottom: 10px;
+}
+.markdown-body :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+/* 列表样式 */
+.markdown-body :deep(ul), .markdown-body :deep(ol) {
+  padding-left: 20px;
+  margin-bottom: 10px;
+}
+
+/* 代码块样式 */
+.markdown-body :deep(pre) {
+  background-color: #2d2d2d;
+  color: #ccc;
+  padding: 10px;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.markdown-body :deep(code) {
+  background-color: rgba(175, 184, 193, 0.2);
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.markdown-body :deep(pre) :deep(code) {
+  background-color: transparent;
+  padding: 0;
+}
+
+/* 链接样式 */
+.markdown-body :deep(a) {
+  color: #409eff;
+  text-decoration: none;
+}
+.markdown-body :deep(a:hover) {
+  text-decoration: underline;
 }
 
 </style>

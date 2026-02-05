@@ -42,7 +42,7 @@ public class ChatController {
     @Autowired
     private MemoryService memoryService;
 
-    @Autowired // 注入新的服务
+    @Autowired
     private SystemPromptService systemPromptService;
 
     @PostMapping(produces = "text/event-stream")
@@ -103,6 +103,10 @@ public class ChatController {
             }
             @Override
             public void onComplete(Response<AiMessage> response) {
+                if(response==null){
+                    sink.complete();
+                    return;
+                }
                 AiMessage aiMessage = response.content();
                 if (aiMessage.hasToolExecutionRequests()) {
                     messages.add(aiMessage);

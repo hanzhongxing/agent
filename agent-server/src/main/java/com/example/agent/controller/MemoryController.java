@@ -23,7 +23,6 @@ public class MemoryController {
     @Autowired
     private MemoryService memoryService;
 
-    // 修改返回泛型为 Object
     @GetMapping("/sessions/{sessionId}/messages")
     public List<Map<String, Object>> getMessages(@PathVariable String sessionId) {
         List<ChatMessage> messages = memoryService.getMessages(sessionId);
@@ -32,14 +31,12 @@ public class MemoryController {
             if (msg instanceof UserMessage) {
                 m.put("role", "user");
                 m.put("content", ((UserMessage) msg).singleText());
-            } else if (msg instanceof ToolExecutionResultMessage) {
-                ToolExecutionResultMessage toolMsg = (ToolExecutionResultMessage) msg;
+            } else if (msg instanceof ToolExecutionResultMessage toolMsg) {
                 m.put("role", "tool");
                 m.put("toolName", toolMsg.toolName());
                 m.put("output", toolMsg.text());
                 m.put("content", "Tool execution completed.");
-            } else if (msg instanceof AiMessage) {
-                AiMessage aiMsg = (AiMessage) msg;
+            } else if (msg instanceof AiMessage aiMsg) {
                 if (aiMsg.hasToolExecutionRequests()) {
                     m.put("role", "assistant_tool_request");
                     var requests = aiMsg.toolExecutionRequests().stream().map(req -> {
@@ -48,7 +45,6 @@ public class MemoryController {
                         toolInfo.put("arguments", req.arguments()); // 参数保持原样
                         return toolInfo;
                     }).toList();
-                    // 直接放入 List 对象，不再 toString()
                     m.put("toolCalls", requests);
                     m.put("content", "Calling tools...");
                 } else {

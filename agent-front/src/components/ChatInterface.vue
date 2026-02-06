@@ -802,7 +802,7 @@ const sendMessage = async () => {
 
   loading.value = true;
   await scrollToBottom(true); 
-
+  inputMessage.value=''; // 清空输入框
   try {
 
     let currentMsg = { role: 'assistant', content: '' ,loading: true};

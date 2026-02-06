@@ -126,18 +126,20 @@
                     <el-icon :class="['expand-icon', { expanded: msg.expanded }]"><ArrowRight /></el-icon>
                   </div>
                   
-                  <el-collapse-transition>
-                    <div v-show="msg.expanded" class="tool-details">
-                      <div class="detail-section">
-                        <div class="section-label">Input</div>
-                        <div class="code-block json">{{ formatArgs(msg.args || msg.toolCalls) }}</div>
-                      </div>
-                      <div class="detail-section">
-                        <div class="section-label">Output</div>
-                        <pre class="code-block xml">{{ msg.output || msg.content }}</pre>
-                      </div>
+                 <el-collapse-transition>
+                  <div v-show="msg.expanded" class="tool-details">
+                    <div class="detail-section">
+                      <div class="section-label">Input</div>
+                      <!-- 添加了 class: code-block json -->
+                      <div class="code-block json">{{ formatArgs(msg.args || msg.toolCalls) }}</div>
                     </div>
-                  </el-collapse-transition>
+                    <div class="detail-section" style="margin-top: 12px;">
+                      <div class="section-label">Output</div>
+                      <!-- 添加了 class: code-block xml -->
+                      <pre class="code-block xml">{{ msg.output || msg.content }}</pre>
+                    </div>
+                  </div>
+                </el-collapse-transition>
                 </div>
 
                 <span class="timestamp" v-if="msg.role !== 'tool' && !msg.isTool">{{ formatTime(new Date()) }}</span>
@@ -1148,12 +1150,6 @@ const formatSize = (bytes) => {
   margin-left: auto; /* 辅助 flexbox */
 }
 .message-row.assistant { align-self: flex-start; }
-.message-row.tool-row { 
-  align-self: flex-start;
-  padding: 10px;
-  width: fit-content;
-  max-width: 100%;
-}
 
 
 .avatar { flex-shrink: 0; margin-top: 2px; }
@@ -1395,4 +1391,77 @@ const formatSize = (bytes) => {
   color: #ffffff;
 }
 .user .markdown-body a { color: #bfdbfe; }
+
+/* --- Tool Card 样式优化 --- */
+
+/* 1. 确保工具卡片本身不限制高度 */
+.tool-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  max-width: 100%;
+  min-width: 400px;
+  margin-top: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* 2. 工具详情区域 */
+.tool-details {
+  padding: 16px;
+  border-top: 1px solid #e2e8f0;
+  background: #fcfcfc;
+}
+
+/* 3. 核心修复：代码块样式 */
+.code-block {
+  font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  
+  background-color: #1e293b; /* 深色背景，对比度更高 */
+  color: #e2e8f0;            /* 浅色文字 */
+  
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid #334155;
+  
+  /* --- 关键属性：强制换行，防止被截断 --- */
+  white-space: pre-wrap;       /* 保留格式但允许自动换行 */
+  word-wrap: break-word;       /* 长单词强制换行 */
+  word-break: break-all;       /* 解决纯数字/无空格字符串不换行的问题 */
+  
+  /* --- 关键属性：高度控制 --- */
+  max-height: 500px;           /* 限制最大高度，避免单条结果占满全屏 */
+  overflow-y: auto;            /* 内容超长时出现垂直滚动条 */
+  overflow-x: hidden;          /* 隐藏水平滚动条 */
+}
+
+/* 针对 Input 参数 (JSON) 可以稍微短一点 */
+.code-block.json {
+  background-color: #f1f5f9; /* 输入参数用浅色背景区分 */
+  color: #334155;
+  border-color: #e2e8f0;
+  max-height: 200px;         /* 输入通常较短 */
+}
+
+/* 针对 Output 结果 (XML/Text) */
+.code-block.xml {
+  /* 继承上面的 .code-block 深色样式 */
+}
+
+/* 优化折叠标题 */
+.tool-header {
+  padding: 10px 16px;
+  background: #f8fafc;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s;
+}
+.tool-header:hover {
+  background: #f1f5f9;
+}
+
 </style>

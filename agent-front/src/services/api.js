@@ -3,7 +3,7 @@ import axios from 'axios';
 const API_URL = 'http://localhost:8070/api';
 
 export const chatApi = {
-    // Chat & RAG
+
     async sendMessage(message, useRag = false, useMemory = true, modelId = null, sessionId = null, onChunk = null) {
         const payload = { message, useRag, useMemory };
         if (sessionId) {
@@ -35,8 +35,6 @@ export const chatApi = {
 
             const chunk = decoder.decode(value, { stream: true });
 
-            // Handle SSE format "data: token\n\n"
-            // Spring Flux might send multiple data lines in one chunk or partial lines
             const lines = chunk.split('\n');
             for (const line of lines) {
                 if (!line) continue;
@@ -44,7 +42,6 @@ export const chatApi = {
                 let token = line;
                 if (line.startsWith('data:')) {
                     token = line.substring(5);
-                    // If it was "data: ", keep the space. If it was "data:token", it's still "token".
                 }
 
                 if (token) {

@@ -12,9 +12,14 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ChatSession {
 
+    @JsonProperty("io")
     private String id;
 
+    @JsonProperty("title")
     private String title;
+
+    @JsonProperty("modelId")
+    private String modelId;
 
     @JsonProperty("useMemory")
     private boolean useMemory;

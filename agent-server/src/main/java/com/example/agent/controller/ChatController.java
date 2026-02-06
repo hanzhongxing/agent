@@ -1,5 +1,6 @@
 package com.example.agent.controller;
 
+import com.example.agent.model.ChatSession;
 import com.example.agent.model.ModelInfo;
 import com.example.agent.model.SystemPrompt;
 import com.example.agent.service.*;
@@ -44,31 +45,34 @@ public class ChatController {
     private MemoryService memoryService;
 
     @Autowired
+    private SessionService sessionService;
+
+    @Autowired
     private SystemPromptService systemPromptService;
 
     @PostMapping(produces = "text/event-stream")
     public Flux<String> chat(@RequestBody Map<String, Object> request) {
         String message = (String) request.get("message");
-        boolean useRag = Boolean.TRUE.equals(request.get("useRag"));
-        boolean useMcp = Boolean.TRUE.equals(request.get("useMcp"));
-        boolean useMemory = Boolean.TRUE.equals(request.get("useMemory"));
-        String modelId = (String) request.get("modelId");
         String sessionId = (String) request.getOrDefault("sessionId", "default");
-        if (modelId == null || modelId.isEmpty()) {
+        ChatSession session=sessionService.getSession(sessionId);
+        if(session==null){
+            return Flux.error(new IllegalArgumentException("Current Session is null ID :"+sessionId));
+        }
+        if (session.getModelId() == null || session.getModelId().isEmpty()) {
             return Flux.error(new IllegalArgumentException("Model ID is required."));
         }
-        ModelInfo config = modelService.getConfig(modelId);
+        ModelInfo config = modelService.getConfig(session.getModelId());
         if (config == null) {
-            return Flux.error(new IllegalArgumentException("Model configuration not found for ID: " + modelId));
+            return Flux.error(new IllegalArgumentException("Model configuration not found for ID: " + session.getModelId()));
         }
         StreamingChatLanguageModel client = createStreamingChatModel(config);
         List<ToolSpecification> tools =new ArrayList<>();
-        if(useMcp) {
+        if(session.isUseMcp()) {
             tools.addAll(mcpService.getAllTools());
         }
         logger.info("chat with {} tools", tools.size());
         String prompt = message;
-        if (useRag) {
+        if (session.isUseRag()) {
             List<TextSegment> docs = ragService.search(message);
             if (docs != null && !docs.isEmpty()) {
                 String context = docs.stream().map(TextSegment::text).collect(Collectors.joining("\n"));
@@ -84,7 +88,7 @@ public class ChatController {
             chatMessages.add(new SystemMessage(activePrompt.getContent()));
         }
 
-        if (useMemory) {
+        if (session.isUseMemory()) {
             chatMessages.addAll(memoryService.getMessages(sessionId));
         }
 

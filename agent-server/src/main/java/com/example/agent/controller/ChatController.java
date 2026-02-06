@@ -50,6 +50,7 @@ public class ChatController {
     public Flux<String> chat(@RequestBody Map<String, Object> request) {
         String message = (String) request.get("message");
         boolean useRag = Boolean.TRUE.equals(request.get("useRag"));
+        boolean useMcp = Boolean.TRUE.equals(request.get("useMcp"));
         boolean useMemory = Boolean.TRUE.equals(request.get("useMemory"));
         String modelId = (String) request.get("modelId");
         String sessionId = (String) request.getOrDefault("sessionId", "default");
@@ -61,7 +62,10 @@ public class ChatController {
             return Flux.error(new IllegalArgumentException("Model configuration not found for ID: " + modelId));
         }
         StreamingChatLanguageModel client = createStreamingChatModel(config);
-        List<ToolSpecification> tools = mcpService.getAllTools();
+        List<ToolSpecification> tools =new ArrayList<>();
+        if(useMcp) {
+            tools.addAll(mcpService.getAllTools());
+        }
         logger.info("chat with {} tools", tools.size());
         String prompt = message;
         if (useRag) {

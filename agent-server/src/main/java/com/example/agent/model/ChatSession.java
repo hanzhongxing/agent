@@ -21,4 +21,7 @@ public class ChatSession {
 
     @JsonProperty("useRag")
     private boolean useRag;
+
+    @JsonProperty("useMcp")
+    private boolean useMcp;
 }

@@ -1148,6 +1148,13 @@ const formatSize = (bytes) => {
   margin-left: auto; /* 辅助 flexbox */
 }
 .message-row.assistant { align-self: flex-start; }
+.message-row.tool-row { 
+  align-self: flex-start;
+  padding: 10px;
+  width: fit-content;
+  max-width: 100%;
+}
+
 
 .avatar { flex-shrink: 0; margin-top: 2px; }
 .avatar-img { background: #f1f5f9; color: #64748b; }

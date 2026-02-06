@@ -106,12 +106,13 @@
 
              <!-- Content Area -->
              <div class="message-content-wrapper">
-                <div v-if="msg.loading && msg.role === 'assistant'" class="typing-indicator">
-                  <span></span><span></span><span></span>
+
+                 <div v-if="msg.loading && !msg.content && msg.role === 'assistant'" class="typing-indicator">
+                    <span></span><span></span><span></span>
                 </div>
 
                 <!-- 1. Normal Message (Text/Markdown) -->
-                <div v-else-if="msg.role === 'user' || (msg.role === 'assistant' && !msg.isTool)" class="message-bubble">
+                <div v-else-if="msg.role === 'user' || (msg.role === 'assistant' && !msg.isTool)" class="message-bubble" :class="{ 'streaming': msg.loading }">
                   <div v-if="isHtmlOrXml(msg.content)" v-html="msg.content" class="xml-content"></div>
                   <div v-else class="markdown-body" v-html="renderMarkdown(msg.content)"></div>
                 </div>
@@ -304,11 +305,7 @@
                   <el-table :data="mcpConfigs" style="width: 100%" height="400px">
                       <el-table-column prop="name" label="Name" />
                       <el-table-column prop="baseUrl" label="URL" show-overflow-tooltip/>
-                      <el-table-column label="Status" width="80">
-                        <template #default="scope">
-                            <div :class="['status-dot', scope.row.enabled ? 'active' : 'inactive']"></div>
-                        </template>
-                      </el-table-column>
+                      <el-table-column label="Enabled" prop="enabled" width="80"></el-table-column>
                       <el-table-column label="Actions" width="150" align="center">
                       <template #default="scope">
                           <el-button link type="primary" size="small" @click="viewMcp(scope.row)">Tools</el-button>
@@ -480,8 +477,6 @@ const ragFiles = ref([]);
 const ragFilesLoading = ref(false);
 const chatHistory = ref(null);
 const isSidebarCollapsed = ref(false);
-const typewriterQueue = ref([]);
-const isTyping = ref(false);
 const promptList = ref([]);
 const newPrompt = ref({ name: '', content: '', active: false });
 const isEditingPrompt = computed(() => !!newPrompt.value.id);
@@ -489,44 +484,11 @@ const isEditingPrompt = computed(() => !!newPrompt.value.id);
 // --- Functions ---
 const renderMarkdown = (text) => text ? md.render(text) : '';
 
-const processTypewriter = () => {
-  if (typewriterQueue.value.length > 0) {
-    isTyping.value = true;
-    const queueLength = typewriterQueue.value.length;
-    let batchSize = 1;
-    const nextTask = typewriterQueue.value[0];
-    const isRenderingHtml = nextTask && nextTask.target && isHtmlOrXml(nextTask.target[nextTask.key]);
+const showAvatar = (msg, index) => {
+  if (msg.role === 'user'||msg.role === 'assistant') return true;
 
-    if (isRenderingHtml) {
-        batchSize = 10; 
-    } else {
-        batchSize = queueLength > 100 ? 5 : (queueLength > 20 ? 2 : 1);
-    }
-
-    for (let i = 0; i < batchSize && typewriterQueue.value.length > 0; i++) {
-        const task = typewriterQueue.value.shift();
-        if (task && task.target) {
-            task.target[task.key] += task.char;
-            if (task.target.loading) task.target.loading = false;
-        }
-    }
-    scrollToBottom(false);
-    requestAnimationFrame(processTypewriter);
-  } else {
-    isTyping.value = false;
-  }
+  return false;
 };
-
-const pushToTypewriter = (targetObj, keyName, text) => {
-    if (!text) return;
-    const chars = text.split('');
-    chars.forEach(char => {
-        typewriterQueue.value.push({ target: targetObj, key: keyName, char: char });
-    });
-    if (!isTyping.value) processTypewriter();
-};
-
-const showAvatar = (msg, index) => true;
 
 const getMessageClass = (msg) => {
   if (msg.role === 'user') return 'user';
@@ -787,6 +749,7 @@ const scrollToBottom = async (force = false) => {
 };
 
 const sendMessage = async () => {
+
   if (!inputMessage.value.trim() || loading.value) return;
   const userMsg = inputMessage.value;
   const session = currentSession.value;
@@ -802,6 +765,7 @@ const sendMessage = async () => {
   await scrollToBottom(true); 
 
   try {
+
     let currentMsg = { role: 'assistant', content: '' ,loading: true};
     session.messages.push(currentMsg);
     
@@ -813,11 +777,12 @@ const sendMessage = async () => {
         (token) => {
             if (token.includes(':::TOOL_START:::')) {
                 isHandlingTool = true;
-                if (!currentMsg.content.trim() && !typewriterQueue.value.some(t => t.target === currentMsg)) {
+                if (!currentMsg.content.trim()) {
                     session.messages.pop(); 
                 }
                 currentToolMsg = { role: 'tool', isTool: true, expanded: true, toolName: 'Detecting...', args: '', output: '' };
                 session.messages.push(currentToolMsg);
+
                 const parts = token.split(':::TOOL_START:::');
                 if (parts.length > 1) {
                     const jsonPart = parts[1].split(':::TOOL_END:::')[0];
@@ -838,10 +803,11 @@ const sendMessage = async () => {
                scrollToBottom();
             } else {
                 if (isHandlingTool && currentToolMsg) {
-                    pushToTypewriter(currentToolMsg, 'output', token);
+                    currentToolMsg.output += token;
                 } else {
-                    pushToTypewriter(currentMsg, 'content', token);
+                    currentMsg.content += token;
                 }
+                scrollToBottom(false);
             }
         }
     );
@@ -849,6 +815,10 @@ const sendMessage = async () => {
     session.messages.push({ role: 'assistant', content: 'Error: ' + error.message });
   } finally {
     loading.value = false;
+    if(session.messages.length > 0) {
+        const lastMsg = session.messages[session.messages.length - 1];
+        if(lastMsg.role === 'assistant') lastMsg.loading = false;
+    }
     scrollToBottom(false); 
   }
 };
@@ -1212,46 +1182,6 @@ const formatSize = (bytes) => {
 .send-btn:hover { background-color: #2563eb; color: #fff; }
 .input-footer { text-align: center; font-size: 11px; color: #94a3b8; margin-top: 8px; }
 
-/* --- Markdown Styling (The fix for formatted content) --- */
-.markdown-body {
-  font-family: 'Inter', sans-serif;
-  font-size: 15px;
-  color: #1e293b;
-  line-height: 1.6;
-}
-/* User bubble markdown specifics (White text) */
-.user .markdown-body { color: white; }
-.user .markdown-body :deep(a) { color: #bfdbfe; text-decoration: underline; }
-.user .markdown-body :deep(code) { background: rgba(255,255,255,0.2); color: white; }
-
-/* General Markdown Elements */
-.markdown-body :deep(p) { margin: 0; }
-.markdown-body :deep(p:last-child) { margin-bottom: 0; }
-.markdown-body :deep(h1), .markdown-body :deep(h2), .markdown-body :deep(h3) { margin-top: 1em; margin-bottom: 0.5em; font-weight: 600; line-height: 1.25; }
-.markdown-body :deep(ul), .markdown-body :deep(ol) { padding-left: 1.5em; margin-bottom: 0.8em; }
-.markdown-body :deep(li) { margin-bottom: 0.2em; }
-.markdown-body :deep(pre) {
-  background: #1e293b; /* Dark bg for code blocks */
-  color: #e2e8f0;
-  padding: 12px;
-  border-radius: 6px;
-  overflow-x: auto;
-  margin: 0.8em 0;
-  font-size: 13px;
-  font-family: 'Menlo', monospace;
-}
-.markdown-body :deep(code) {
-  font-family: 'Menlo', monospace;
-  font-size: 0.9em;
-  background: #f1f5f9;
-  color: #0f172a;
-  padding: 2px 4px;
-  border-radius: 4px;
-}
-.markdown-body :deep(pre) :deep(code) { background: transparent; padding: 0; color: inherit; }
-.markdown-body :deep(blockquote) { border-left: 3px solid #cbd5e1; margin: 0; padding-left: 1em; color: #64748b; }
-.markdown-body :deep(a) { color: #2563eb; text-decoration: none; }
-.markdown-body :deep(a:hover) { text-decoration: underline; }
 .xml-content { overflow-x: auto; background: #f8fafc; padding: 10px; border-radius: 4px; border: 1px solid #e2e8f0; font-family: monospace; font-size: 13px; }
 
 /* --- Settings Dialog (Clean Style) --- */
@@ -1307,4 +1237,146 @@ const formatSize = (bytes) => {
 .full-h-textarea { height: 100%; }
 .full-h-textarea :deep(.el-textarea__inner) { height: 100% !important; font-family: monospace; }
 .mt-3 { margin-top: 12px; } .mb-3 { margin-bottom: 12px; } .text-right { text-align: right; }
+
+
+/* --- Markdown Styling Enhanced --- */
+
+/* 1. 基础排版优化 */
+.markdown-body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  font-size: 15px;
+  line-height: 1.7; /* 增加行高，提升可读性 */
+  color: #1e293b;
+  word-wrap: break-word;
+}
+
+/* 2. 元素间距 */
+.markdown-body > *:first-child { margin-top: 0; }
+.markdown-body > *:last-child { margin-bottom: 0; }
+
+.markdown-body p { margin-bottom: 1em; }
+
+/* 3. 列表样式 */
+.markdown-body ul, 
+.markdown-body ol {
+  padding-left: 1.5em;
+  margin-bottom: 1em;
+}
+.markdown-body li { margin-bottom: 0.25em; }
+
+/* 4. 标题样式 */
+.markdown-body h1, .markdown-body h2, .markdown-body h3 {
+  font-weight: 600;
+  margin-top: 24px;
+  margin-bottom: 16px;
+  line-height: 1.25;
+  color: #0f172a;
+}
+.markdown-body h1 { font-size: 1.5em; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.3em;}
+.markdown-body h2 { font-size: 1.3em; }
+.markdown-body h3 { font-size: 1.1em; }
+
+/* 5. 代码块样式 (Atom One Dark 风格背景) */
+.markdown-body pre {
+  background-color: #282c34; /* 深色背景 */
+  color: #abb2bf;
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 16px 0;
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
+/* 移除 hljs 可能自带的背景，确保一致 */
+.markdown-body pre code.hljs {
+  background: transparent;
+  padding: 0;
+}
+
+/* 6. 行内代码样式 */
+.markdown-body :not(pre) > code {
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 0.85em;
+  background-color: #f1f5f9; /* 浅灰背景 */
+  color: #0f172a;
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+}
+
+/* 7. 引用块样式 */
+.markdown-body blockquote {
+  margin: 16px 0;
+  padding: 0 1em;
+  color: #64748b;
+  border-left: 0.25em solid #cbd5e1;
+}
+
+/* 8. 表格样式 */
+.markdown-body table {
+  border-spacing: 0;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+  width: 100%;
+  display: block;
+  overflow: auto;
+}
+.markdown-body table th,
+.markdown-body table td {
+  padding: 8px 13px;
+  border: 1px solid #d0d7de;
+}
+.markdown-body table th {
+  font-weight: 600;
+  background-color: #f6f8fa;
+}
+.markdown-body table tr:nth-child(2n) {
+  background-color: #fcfcfc;
+}
+
+/* --- 实时生成时的光标动画 --- */
+/* 仅当在 streaming 状态下的最后一个元素后显示光标 */
+.streaming .markdown-body > *:last-child::after {
+  content: "●";
+  color: #2563eb;
+  animation: blink 1s steps(2, start) infinite;
+  margin-left: 4px;
+  vertical-align: baseline;
+  display: inline-block;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* --- 用户气泡内的 Markdown 颜色修复 (深色背景适配) --- */
+.user .message-bubble {
+  background-color: #2563eb;
+  color: #fff;
+  border: none; /* 移除可能的边框 */
+}
+
+/* 强制重写用户气泡内的 markdown 颜色 */
+.user .markdown-body { color: #fff; }
+.user .markdown-body p, 
+.user .markdown-body li,
+.user .markdown-body h1, 
+.user .markdown-body h2, 
+.user .markdown-body h3,
+.user .markdown-body strong { 
+  color: #fff; 
+}
+
+.user .markdown-body a { color: #bfdbfe; text-decoration: underline; }
+
+/* 用户气泡内的代码块颜色微调 */
+.user .markdown-body :not(pre) > code {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+.user .markdown-body pre {
+  background-color: rgba(0, 0, 0, 0.3); /* 半透明黑 */
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
 </style>

@@ -1358,6 +1358,11 @@ const formatSize = (bytes) => {
   overflow-x: auto;
   margin: 12px 0;
 }
+
+.markdown-body :deep(.hljs) {
+  padding: 16px;
+}
+
 .markdown-body code {
   font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
   font-size: 0.9em;

@@ -62,6 +62,7 @@ public class ChatController {
         }
         StreamingChatLanguageModel client = createStreamingChatModel(config);
         List<ToolSpecification> tools = mcpService.getAllTools();
+        logger.info("chat with {} tools", tools.size());
         String prompt = message;
         if (useRag) {
             List<TextSegment> docs = ragService.search(message);
@@ -92,7 +93,6 @@ public class ChatController {
     }
 
     private void generateResponse(StreamingChatLanguageModel client,List<ChatMessage> messages,List<ToolSpecification> tools,FluxSink<String> sink,String sessionId) {
-        logger.info("Generating with {} tools", tools.size());
         client.generate(messages, tools, new StreamingResponseHandler<AiMessage>() {
             @Override
             public void onNext(String token) {

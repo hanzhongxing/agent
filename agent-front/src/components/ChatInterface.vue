@@ -43,6 +43,10 @@
               <el-switch v-model="currentSession.useRag" size="small" active-color="#2563eb" @change="syncSession(currentSession)" />
             </div>
             <div class="control-row" style="margin-top: 10px">
+              <span class="label">MCP</span>
+              <el-switch v-model="currentSession.useMcp" size="small" active-color="#2563eb" @change="syncSession(currentSession)" />
+            </div>
+            <div class="control-row" style="margin-top: 10px">
               <span class="label">Memory</span>
               <el-switch v-model="currentSession.useMemory" size="small" active-color="#2563eb" @change="syncSession(currentSession)" />
             </div>
@@ -465,7 +469,7 @@ const md = new MarkdownIt({
 });
 
 // State
-const sessions = ref([{ id: 'default', title: 'Default Conversation', messages: [], useMemory: true, useRag: false }]);
+const sessions = ref([{ id: 'default', title: 'Default Conversation', messages: [], useMemory: true, useRag: true, useMcp: true }]);
 const currentSessionId = ref('default');
 const inputMessage = ref('');
 const loading = ref(false);
@@ -1159,7 +1163,7 @@ const formatSize = (bytes) => {
 .message-content-wrapper { display: flex; flex-direction: column; max-width: 100%; min-width: 0; }
 
 .message-bubble {
-  padding: 10px 16px;
+  padding: 0px 15px;
   font-size: 15px;
   line-height: 1.6; /* 增加行高 */
   position: relative;
@@ -1172,7 +1176,7 @@ const formatSize = (bytes) => {
   background: #2563eb; /* 纯蓝 */
   color: white;
   padding:0 10px;
-  border-radius: 12px 12px 2px 12px; /* 更小的圆角 */
+  border-radius: 15px; /* 更小的圆角 */
   margin-left: auto; /* 确保靠右 */
 }
 
@@ -1384,6 +1388,8 @@ const formatSize = (bytes) => {
 /* 因为用户气泡是深色的，我们需要反转颜色 */
 .user .markdown-body {
   color: #ffffff;
+  padding:0;
+  line-height: 0.6;
 }
 .user .markdown-body strong { color: #ffffff; }
 .user .markdown-body code {

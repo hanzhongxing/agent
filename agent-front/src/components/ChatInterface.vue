@@ -813,7 +813,8 @@ const sendMessage = async () => {
 
     await chatApi.sendMessage(
         userMsg, session.useRag, session.useMemory, selectedModel.value, session.id,
-        (token) => {
+        (rawToken) => {
+            const token = rawToken.replace(/\\n/g, '\n');
             if (token.includes(':::TOOL_START:::')) {
                 isHandlingTool = true;
                 if (!currentMsg.content.trim()) {

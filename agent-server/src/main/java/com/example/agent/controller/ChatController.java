@@ -96,7 +96,10 @@ public class ChatController {
         client.generate(messages, tools, new StreamingResponseHandler<AiMessage>() {
             @Override
             public void onNext(String token) {
-                sink.next(token);
+                if (token != null) {
+                    String safeToken = token.replace("\n", "\\n");
+                    sink.next(safeToken);
+                }
             }
             @Override
             public void onComplete(Response<AiMessage> response) {

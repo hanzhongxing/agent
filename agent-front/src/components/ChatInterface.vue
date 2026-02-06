@@ -107,14 +107,13 @@
              <!-- Content Area -->
              <div class="message-content-wrapper">
 
-                 <div v-if="msg.loading && !msg.content && msg.role === 'assistant'" class="typing-indicator">
-                    <span></span><span></span><span></span>
+                <div v-if="msg.loading && !msg.content && msg.role === 'assistant' && !msg.isTool" class="typing-indicator">
+                  <span></span><span></span><span></span>
                 </div>
 
-                <!-- 1. Normal Message (Text/Markdown) -->
                 <div v-else-if="msg.role === 'user' || (msg.role === 'assistant' && !msg.isTool)" class="message-bubble" :class="{ 'streaming': msg.loading }">
-                  <div v-if="isHtmlOrXml(msg.content)" v-html="msg.content" class="xml-content"></div>
-                  <div v-else class="markdown-body" v-html="renderMarkdown(msg.content)"></div>
+                    <div v-if="isHtmlOrXml(msg.content)" v-html="msg.content" class="xml-content"></div>
+                    <div v-else class="markdown-body" v-html="renderMarkdown(msg.content)"></div>
                 </div>
 
                 <!-- 2. Tool Card -->
@@ -481,8 +480,45 @@ const promptList = ref([]);
 const newPrompt = ref({ name: '', content: '', active: false });
 const isEditingPrompt = computed(() => !!newPrompt.value.id);
 
+const streamQueue = ref([]); // 缓冲队列
+const isStreaming = ref(false); // 是否正在打字
+let animationFrameId = null; // 用于取消动画帧
+
 // --- Functions ---
 const renderMarkdown = (text) => text ? md.render(text) : '';
+
+const startTypewriter = () => {
+  if (isStreaming.value) return;
+  isStreaming.value = true;
+
+  const animate = () => {
+    if (streamQueue.value.length > 0) {
+      // 智能速度控制：如果队列堆积太多（比如网络突然来了一大段），就一次多打几个字，避免打字太慢
+      // 队列越长，step 越大，视觉上就是“追赶”效果
+      const queueLength = streamQueue.value.length;
+      const step = queueLength > 50 ? 5 : (queueLength > 20 ? 2 : 1);
+
+      // 取出 step 个字符
+      const chars = streamQueue.value.splice(0, step).join('');
+      
+      // 找到当前正在对话的最后一条 assistant 消息
+      const currentMsgs = currentSession.value.messages;
+      if (currentMsgs.length > 0) {
+        const lastMsg = currentMsgs[currentMsgs.length - 1];
+        // 只有当最后一条是 assistant 且不是工具时才拼接
+        if (lastMsg.role === 'assistant' && !lastMsg.isTool) {
+           lastMsg.content += chars;
+           scrollToBottom(false); // 随打字滚动
+        }
+      }
+    } else {
+       // 队列空了，但不需要立即停止 isStreaming，
+       // 因为可能网络还在请求中。我们在 sendMessage 的 finally 里彻底停止。
+    }
+    animationFrameId = requestAnimationFrame(animate);
+  };
+  animationFrameId = requestAnimationFrame(animate);
+};
 
 const showAvatar = (msg, index) => {
   if (msg.role === 'user'||msg.role === 'assistant') return true;
@@ -760,7 +796,10 @@ const sendMessage = async () => {
   }
 
   session.messages.push({ role: 'user', content: userMsg });
-  inputMessage.value = '';
+
+  streamQueue.value = []; // 清空残留
+  startTypewriter();
+
   loading.value = true;
   await scrollToBottom(true); 
 
@@ -805,7 +844,8 @@ const sendMessage = async () => {
                 if (isHandlingTool && currentToolMsg) {
                     currentToolMsg.output += token;
                 } else {
-                    currentMsg.content += token;
+                    const chars = token.split('');
+                    streamQueue.value.push(...chars);
                 }
                 scrollToBottom(false);
             }
@@ -814,12 +854,22 @@ const sendMessage = async () => {
   } catch (error) {
     session.messages.push({ role: 'assistant', content: 'Error: ' + error.message });
   } finally {
-    loading.value = false;
-    if(session.messages.length > 0) {
-        const lastMsg = session.messages[session.messages.length - 1];
-        if(lastMsg.role === 'assistant') lastMsg.loading = false;
-    }
-    scrollToBottom(false); 
+    // 等待队列打完再结束 loading 状态
+    const checkQueueFinished = setInterval(() => {
+        if (streamQueue.value.length === 0) {
+            clearInterval(checkQueueFinished);
+            loading.value = false;
+            isStreaming.value = false;
+            cancelAnimationFrame(animationFrameId);
+            
+            // 将最后一条消息状态设为完成
+            if(session.messages.length > 0) {
+                const lastMsg = session.messages[session.messages.length - 1];
+                if(lastMsg.role === 'assistant') lastMsg.loading = false;
+            }
+            syncSession(session); // 保存会话
+        }
+    }, 100);
   }
 };
 
@@ -1239,106 +1289,13 @@ const formatSize = (bytes) => {
 .mt-3 { margin-top: 12px; } .mb-3 { margin-bottom: 12px; } .text-right { text-align: right; }
 
 
-/* --- Markdown Styling Enhanced --- */
-
-/* 1. 基础排版优化 */
-.markdown-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
-  font-size: 15px;
-  line-height: 1.7; /* 增加行高，提升可读性 */
-  color: #1e293b;
-  word-wrap: break-word;
-}
-
-/* 2. 元素间距 */
-.markdown-body > *:first-child { margin-top: 0; }
-.markdown-body > *:last-child { margin-bottom: 0; }
-
-.markdown-body p { margin-bottom: 1em; }
-
-/* 3. 列表样式 */
-.markdown-body ul, 
-.markdown-body ol {
-  padding-left: 1.5em;
-  margin-bottom: 1em;
-}
-.markdown-body li { margin-bottom: 0.25em; }
-
-/* 4. 标题样式 */
-.markdown-body h1, .markdown-body h2, .markdown-body h3 {
-  font-weight: 600;
-  margin-top: 24px;
-  margin-bottom: 16px;
-  line-height: 1.25;
-  color: #0f172a;
-}
-.markdown-body h1 { font-size: 1.5em; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.3em;}
-.markdown-body h2 { font-size: 1.3em; }
-.markdown-body h3 { font-size: 1.1em; }
-
-/* 5. 代码块样式 (Atom One Dark 风格背景) */
-.markdown-body pre {
-  background-color: #282c34; /* 深色背景 */
-  color: #abb2bf;
-  padding: 16px;
-  border-radius: 8px;
-  overflow-x: auto;
-  margin: 16px 0;
-  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-  font-size: 13px;
-  line-height: 1.5;
-}
-/* 移除 hljs 可能自带的背景，确保一致 */
-.markdown-body pre code.hljs {
-  background: transparent;
-  padding: 0;
-}
-
-/* 6. 行内代码样式 */
-.markdown-body :not(pre) > code {
-  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-  font-size: 0.85em;
-  background-color: #f1f5f9; /* 浅灰背景 */
-  color: #0f172a;
-  padding: 0.2em 0.4em;
-  border-radius: 4px;
-}
-
-/* 7. 引用块样式 */
-.markdown-body blockquote {
-  margin: 16px 0;
-  padding: 0 1em;
-  color: #64748b;
-  border-left: 0.25em solid #cbd5e1;
-}
-
-/* 8. 表格样式 */
-.markdown-body table {
-  border-spacing: 0;
-  border-collapse: collapse;
-  margin-bottom: 16px;
-  width: 100%;
-  display: block;
-  overflow: auto;
-}
-.markdown-body table th,
-.markdown-body table td {
-  padding: 8px 13px;
-  border: 1px solid #d0d7de;
-}
-.markdown-body table th {
-  font-weight: 600;
-  background-color: #f6f8fa;
-}
-.markdown-body table tr:nth-child(2n) {
-  background-color: #fcfcfc;
-}
-
-/* --- 实时生成时的光标动画 --- */
-/* 仅当在 streaming 状态下的最后一个元素后显示光标 */
+/* --- 光标动画 (Mainstream Agent Effect) --- */
+/* 只有当消息处于 loading (streaming) 状态时，才在内容末尾添加光标 */
 .streaming .markdown-body > *:last-child::after {
-  content: "●";
+  content: "●"; /* 或者使用 "|" */
+  font-family: "Inter", sans-serif;
   color: #2563eb;
+  font-size: 0.8em;
   animation: blink 1s steps(2, start) infinite;
   margin-left: 4px;
   vertical-align: baseline;
@@ -1350,33 +1307,78 @@ const formatSize = (bytes) => {
   50% { opacity: 0; }
 }
 
-/* --- 用户气泡内的 Markdown 颜色修复 (深色背景适配) --- */
-.user .message-bubble {
-  background-color: #2563eb;
-  color: #fff;
-  border: none; /* 移除可能的边框 */
+/* --- Markdown Body 样式优化 (解决换行、加粗无效问题) --- */
+.markdown-body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.75; /* 增加行高，解决拥挤 */
+  color: #1e293b;
+  word-wrap: break-word;
 }
 
-/* 强制重写用户气泡内的 markdown 颜色 */
-.user .markdown-body { color: #fff; }
-.user .markdown-body p, 
-.user .markdown-body li,
-.user .markdown-body h1, 
-.user .markdown-body h2, 
-.user .markdown-body h3,
-.user .markdown-body strong { 
-  color: #fff; 
+/* 解决换行不明显的问题 */
+.markdown-body p {
+  margin-bottom: 1em; /* 段落间距 */
+  min-height: 1em;    /* 防止空行塌陷 */
+  white-space: pre-wrap; /* 关键：保留 Markdown 中的换行符 */
 }
 
-.user .markdown-body a { color: #bfdbfe; text-decoration: underline; }
+/* 解决加粗样式 */
+.markdown-body strong {
+  font-weight: 700;
+  color: #0f172a; /* 加深颜色 */
+}
 
-/* 用户气泡内的代码块颜色微调 */
-.user .markdown-body :not(pre) > code {
+/* 列表样式 */
+.markdown-body ul, .markdown-body ol {
+  margin-bottom: 1em;
+  padding-left: 1.5em;
+}
+.markdown-body li {
+  margin-bottom: 0.25em;
+}
+
+/* 标题样式 */
+.markdown-body h1, .markdown-body h2, .markdown-body h3 {
+  font-weight: 600;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  line-height: 1.25;
+  color: #0f172a;
+}
+
+/* 代码块样式 (类似 ChatGPT/Github) */
+.markdown-body pre {
+  background-color: #282c34;
+  color: #abb2bf;
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 12px 0;
+}
+.markdown-body code {
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 0.9em;
+  background-color: #f1f5f9;
+  color: #ef4444; /* 行内代码红色高亮，区分度高 */
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.markdown-body pre code {
+  background-color: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+/* --- 用户气泡的 Markdown 特殊处理 --- */
+/* 因为用户气泡是深色的，我们需要反转颜色 */
+.user .markdown-body {
+  color: #ffffff;
+}
+.user .markdown-body strong { color: #ffffff; }
+.user .markdown-body code {
   background-color: rgba(255, 255, 255, 0.2);
-  color: #fff;
+  color: #ffffff;
 }
-.user .markdown-body pre {
-  background-color: rgba(0, 0, 0, 0.3); /* 半透明黑 */
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
+.user .markdown-body a { color: #bfdbfe; }
 </style>

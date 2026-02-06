@@ -1167,6 +1167,7 @@ const formatSize = (bytes) => {
 .user .message-bubble {
   background: #2563eb; /* 纯蓝 */
   color: white;
+  padding:0 10px;
   border-radius: 12px 12px 2px 12px; /* 更小的圆角 */
   margin-left: auto; /* 确保靠右 */
 }
@@ -1175,7 +1176,7 @@ const formatSize = (bytes) => {
   background: #f8fafc;
   color: #1e293b;
   border: 1px solid #f1f5f9;
-  border-radius: 2px 12px 12px 12px;
+  border-radius: 10px 12px 12px 12px;
 }
 
 .timestamp { font-size: 10px; color: #94a3b8; margin-top: 4px; opacity: 0.8; }

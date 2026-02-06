@@ -63,7 +63,7 @@ public class CustomMcpClient {
             client.close();
             return tools;
         }catch (Exception e){
-//            logger.debug(e.getMessage(),e);
+            logger.error(e.getMessage(),e);
         }
         return null;
     }

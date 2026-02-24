@@ -488,7 +488,23 @@ const isEditingPrompt = computed(() => !!newPrompt.value.id);
 
 const streamQueue = ref([]); // 缓冲队列
 const isStreaming = ref(false); // 是否正在打字
+
+// Model & MCP State
+const selectedModel = ref('');
+const modelOptions = ref([]);
+const activeTab = ref('model');
+const allModel=ref([]);
+const newModel = ref({ name: '', baseUrl: '', apiKey: '', modelName: '', embed: false });
+const mcpConfigs = ref([]);
+const newMcp = ref({ name: '', baseUrl: '', enabled: true });
+const isEditingMcp = computed(() => !!newMcp.value.id);
+const currentMcpId = ref(null);
+const mcpTools=ref([]);
+
+
 let animationFrameId = null; // 用于取消动画帧
+
+
 
 // --- Functions ---
 const sessionModelChange=(modelId) => {
@@ -577,18 +593,6 @@ const isHtmlOrXml = (content) => {
 }
 
 const currentSession = computed(() => sessions.value.find(s => s.id === currentSessionId.value) || sessions.value[0]);
-
-// Model & MCP State
-const selectedModel = ref('');
-const modelOptions = ref([]);
-const activeTab = ref('model');
-const allModel=ref([]);
-const newModel = ref({ name: '', baseUrl: '', apiKey: '', modelName: '', embed: false });
-const mcpConfigs = ref([]);
-const newMcp = ref({ name: '', baseUrl: '', enabled: true });
-const isEditingMcp = computed(() => !!newMcp.value.id);
-const currentMcpId = ref(null);
-const mcpTools=ref([]);
 
 const openSetting = () => {
    activeTab.value = 'model';
@@ -734,7 +738,6 @@ const loadCurrentSessionMessages = async () => {
         scrollToBottom(true);
     } catch (e) {}
 };
-
 
 const saveNewModel = async () => {
    if(!newModel.value.name || !newModel.value.apiKey) return ElMessage.warning("Required fields missing");

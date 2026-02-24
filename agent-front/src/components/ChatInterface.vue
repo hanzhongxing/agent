@@ -176,7 +176,7 @@
              </el-input>
            </div>
            <div class="input-footer">
-             AI for Socket test,Please check important information.
+             If you foucs this notice,Please check important information,it test only.
            </div>
         </div>
       </div>

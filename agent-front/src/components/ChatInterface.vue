@@ -612,6 +612,7 @@ const getCurrentModelName = computed(() => {
    const found = modelOptions.value.find(m => m.id === selectedModel.value);
    return found ? found.modelName : 'Default';
 });
+
 const isEditing = computed(() => !!newModel.value.id);
 
 // Lifecycle & Data Loading
@@ -755,7 +756,7 @@ const formatTime = (date) => date.toLocaleTimeString([], { hour: '2-digit', minu
 
 const createNewSession = () => {
     const newId = Date.now().toString();
-    const newSession = { id: newId, title: 'New Conversation', messages: [], useMemory: true, useRag: false };
+    const newSession = { id: newId, title: 'New Conversation', messages: [], useMemory: true, useRag: true,useMcp: true,modelId: selectedModel.value };
     sessions.value.unshift(newSession);
     currentSessionId.value = newId;
     syncSession(newSession);
@@ -818,7 +819,7 @@ const sendMessage = async () => {
     let currentToolMsg = null;
 
     await chatApi.sendMessage(
-        userMsg, session.useRag, session.useMemory, selectedModel.value, session.id,
+        userMsg,session.id,
         (rawToken) => {
             const token = rawToken.replace(/\\n/g, '\n');
             if (token.includes(':::TOOL_START:::')) {

@@ -4,13 +4,10 @@ const API_URL = 'http://localhost:8070/api';
 
 export const chatApi = {
 
-    async sendMessage(message, useRag = false, useMemory = true, modelId = null, sessionId = null, onChunk = null) {
-        const payload = { message, useRag, useMemory };
+    async sendMessage(message,sessionId = null, onChunk = null) {
+        const payload = { message };
         if (sessionId) {
             payload.sessionId = sessionId;
-        }
-        if (modelId) {
-            payload.modelId = modelId;
         }
 
         const response = await fetch(`${API_URL}/chat`, {

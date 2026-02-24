@@ -783,6 +783,7 @@ const syncSession = async (session) => {
 
 const switchSession = async (id) => {
     currentSessionId.value = id;
+    setDefaultModelForSessions(currentSession.value.modelId);
     if (currentSession.value.messages.length === 0) await loadCurrentSessionMessages();
 };
 

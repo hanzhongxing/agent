@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ChatSession {
 
-    @JsonProperty("io")
+    @JsonProperty("id")
     private String id;
 
     @JsonProperty("title")

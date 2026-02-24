@@ -2,6 +2,7 @@ package com.example.agent.service;
 
 import com.example.agent.config.AgentConfig;
 import com.example.agent.model.ChatSession;
+import com.example.agent.model.ModelInfo;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
@@ -12,7 +13,6 @@ import org.springframework.stereotype.Service;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -20,9 +20,13 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class SessionService extends BaseService{
     private final static Logger logger= LoggerFactory.getLogger(SessionService.class);
+    private final static String default_session_id="default";
 
     @Autowired
     private AgentConfig agentConfig;
+
+    @Autowired
+    private ModelService modelService;
 
     @Autowired
     private MemoryService memoryService;
@@ -36,7 +40,25 @@ public class SessionService extends BaseService{
     }
 
     public ChatSession getSession(String sessionId){
-        return sessionMetadata.get(sessionId);
+        ChatSession session= sessionMetadata.get(sessionId);
+        if(session==null){
+            if(!default_session_id.equals(sessionId)){
+                return session;
+            }
+            List<ModelInfo> modelInfos=modelService.getChatConfigs();
+            if(modelInfos==null||modelInfos.isEmpty()){
+                return session;
+            }
+            session=new ChatSession();
+            session.setId(default_session_id);
+            session.setTitle("default");
+            session.setModelId(modelInfos.getFirst().getId());
+            session.setUseRag(true);
+            session.setUseMemory(true);
+            session.setUseMcp(true);
+            addSession(session);
+        }
+        return session;
     }
 
     public List<ChatSession> getSessions() {

@@ -59,7 +59,7 @@
         <div class="chat-header">
            <div class="header-info">
              <h3>Assistant</h3>
-             <el-select v-model="selectedModel" placeholder="Select Model" size="small" style="width: 160px; margin-left: 12px">
+             <el-select v-model="selectedModel" placeholder="Select Model" size="small" style="width: 160px; margin-left: 12px" @change="sessionModelChange">
                 <el-option
                   v-for="item in modelOptions"
                   :key="item.id"
@@ -491,6 +491,11 @@ const isStreaming = ref(false); // 是否正在打字
 let animationFrameId = null; // 用于取消动画帧
 
 // --- Functions ---
+const sessionModelChange=(modelId) => {
+   const newSession = { id: currentSession.value.id, title: currentSession.value.title,useMemory: currentSession.value.useMemory, useRag: currentSession.value.useRag,useMcp: currentSession.value.useMcp,modelId: modelId };
+   syncSession(newSession);
+};
+
 const renderMarkdown = (text) => text ? md.render(text) : '';
 
 const startTypewriter = () => {
@@ -678,9 +683,19 @@ const loadSessions = async () => {
         if (backendSessions && backendSessions.length > 0) {
             sessions.value = backendSessions.map(s => ({ ...s, messages: [] }));
             currentSessionId.value = sessions.value[0].id;
+            await setDefaultModelForSessions(sessions.value[0].modelId);
             await loadCurrentSessionMessages();
         }
     } catch (e) { console.error(e); }
+};
+
+const setDefaultModelForSessions = (modelId) => {
+    modelOptions.value.forEach(m => {
+        if (m.id === modelId) {
+            selectedModel.value = modelId;
+            return;
+        }
+    });
 };
 
 const loadCurrentSessionMessages = async () => {

@@ -73,22 +73,26 @@ public class ChatController {
         logger.info("chat with {} tools", tools.size());
         String prompt = message;
         if (session.isUseRag()) {
+            logger.info("chat with rag");
             List<TextSegment> docs = ragService.search(message);
             if (docs != null && !docs.isEmpty()) {
                 String context = docs.stream().map(TextSegment::text).collect(Collectors.joining("\n"));
                 prompt = "Use the following context to answer the question:\n" + context + "\n\nQuestion: " + message;
             }
         }
+
         final List<ChatMessage> chatMessages = new ArrayList<>();
 
         chatMessages.add(new SystemMessage("当前的日期时间是 "+ DateUtil.getCurrentDateTime()));
 
         SystemPrompt activePrompt = systemPromptService.getActivePrompt();
         if (activePrompt != null && StringUtils.hasText(activePrompt.getContent())) {
+            logger.info("chat with system prompt");
             chatMessages.add(new SystemMessage(activePrompt.getContent()));
         }
 
         if (session.isUseMemory()) {
+            logger.info("chat with memory");
             chatMessages.addAll(memoryService.getMessages(sessionId));
         }
 

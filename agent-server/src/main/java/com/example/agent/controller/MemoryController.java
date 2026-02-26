@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/memory")
 @CrossOrigin(origins = "*")
 public class MemoryController {
-    private final Logger logger= LoggerFactory.getLogger(MemoryController.class);
+    private final Logger logger = LoggerFactory.getLogger(MemoryController.class);
 
     @Autowired
     private MemoryService memoryService;
@@ -26,6 +26,7 @@ public class MemoryController {
     @GetMapping("/sessions/{sessionId}/messages")
     public List<Map<String, Object>> getMessages(@PathVariable String sessionId) {
         List<ChatMessage> messages = memoryService.getMessages(sessionId);
+        logger.info("memory load");
         return messages.stream().map(msg -> {
             Map<String, Object> m = new HashMap<>(); // 修改为 Object
             if (msg instanceof UserMessage) {
@@ -42,7 +43,7 @@ public class MemoryController {
                     var requests = aiMsg.toolExecutionRequests().stream().map(req -> {
                         Map<String, String> toolInfo = new HashMap<>();
                         toolInfo.put("name", req.name());
-                        toolInfo.put("arguments", req.arguments()); // 参数保持原样
+                        toolInfo.put("arguments", req.arguments());
                         return toolInfo;
                     }).toList();
                     m.put("toolCalls", requests);

@@ -10,10 +10,8 @@ import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.data.message.*;
 import dev.langchain4j.data.segment.TextSegment;
-import dev.langchain4j.model.StreamingResponseHandler;
-import dev.langchain4j.model.chat.StreamingChatLanguageModel;
+import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
-import dev.langchain4j.model.output.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,20 +52,21 @@ public class ChatController {
     public Flux<String> chat(@RequestBody Map<String, Object> request) {
         String message = (String) request.get("message");
         String sessionId = (String) request.getOrDefault("sessionId", "default");
-        ChatSession session=sessionService.getSession(sessionId);
-        if(session==null){
-            return Flux.error(new IllegalArgumentException("Current Session is null ID :"+sessionId));
+        ChatSession session = sessionService.getSession(sessionId);
+        if (session == null) {
+            return Flux.error(new IllegalArgumentException("Current Session is null ID :" + sessionId));
         }
         if (session.getModelId() == null || session.getModelId().isEmpty()) {
             return Flux.error(new IllegalArgumentException("Model ID is required."));
         }
         ModelInfo config = modelService.getConfig(session.getModelId());
         if (config == null) {
-            return Flux.error(new IllegalArgumentException("Model configuration not found for ID: " + session.getModelId()));
+            return Flux.error(
+                    new IllegalArgumentException("Model configuration not found for ID: " + session.getModelId()));
         }
-        StreamingChatLanguageModel client = createStreamingChatModel(config);
-        List<ToolSpecification> tools =new ArrayList<>();
-        if(session.isUseMcp()) {
+        StreamingChatModel client = createStreamingChatModel(config);
+        List<ToolSpecification> tools = new ArrayList<>();
+        if (session.isUseMcp()) {
             tools.addAll(mcpService.getAllTools());
         }
         logger.info("chat with {} tools", tools.size());
@@ -83,7 +82,7 @@ public class ChatController {
 
         final List<ChatMessage> chatMessages = new ArrayList<>();
 
-        chatMessages.add(new SystemMessage("当前的日期时间是 "+ DateUtil.getCurrentDateTime()));
+        chatMessages.add(new SystemMessage("当前的日期时间是 " + DateUtil.getCurrentDateTime()));
 
         SystemPrompt activePrompt = systemPromptService.getActivePrompt();
         if (activePrompt != null && StringUtils.hasText(activePrompt.getContent())) {
@@ -104,26 +103,34 @@ public class ChatController {
         });
     }
 
-    private void generateResponse(StreamingChatLanguageModel client,List<ChatMessage> messages,List<ToolSpecification> tools,FluxSink<String> sink,String sessionId) {
-        client.generate(messages, tools, new StreamingResponseHandler<AiMessage>() {
+    private void generateResponse(StreamingChatModel client, List<ChatMessage> messages,
+            List<ToolSpecification> tools, FluxSink<String> sink, String sessionId) {
+        dev.langchain4j.model.chat.request.ChatRequest request = dev.langchain4j.model.chat.request.ChatRequest
+                .builder()
+                .messages(messages)
+                .toolSpecifications(tools)
+                .build();
+        client.chat(request, new dev.langchain4j.model.chat.response.StreamingChatResponseHandler() {
             @Override
-            public void onNext(String token) {
+            public void onPartialResponse(String token) {
                 if (token != null) {
                     String safeToken = token.replace("\n", "\\n");
                     sink.next(safeToken);
                 }
             }
+
             @Override
-            public void onComplete(Response<AiMessage> response) {
-                AiMessage aiMessage = response.content();
+            public void onCompleteResponse(dev.langchain4j.model.chat.response.ChatResponse response) {
+                AiMessage aiMessage = response.aiMessage();
                 if (aiMessage.hasToolExecutionRequests()) {
                     messages.add(aiMessage);
                     for (ToolExecutionRequest toolRequest : aiMessage.toolExecutionRequests()) {
-                        logger.info("toolRequest:{}",toolRequest);
-                        memoryService.addMessage(sessionId,aiMessage);
+                        logger.info("toolRequest:{}", toolRequest);
+                        memoryService.addMessage(sessionId, aiMessage);
                         String toolName = toolRequest.name();
                         String args = toolRequest.arguments();
-                        String toolStartJson = String.format("{\"name\":\"%s\", \"args\":%s}", toolName, args.replace("\n", ""));
+                        String toolStartJson = String.format("{\"name\":\"%s\", \"args\":%s}", toolName,
+                                args.replace("\n", ""));
                         sink.next("\n:::TOOL_START:::" + toolStartJson + ":::TOOL_END:::\n");
                         String result;
                         try {
@@ -133,15 +140,15 @@ public class ChatController {
                             result = "Error executing tool: " + e.getMessage();
                         }
                         sink.next(":::TOOL_OUTPUT_START:::\n" + result + "\n:::TOOL_OUTPUT_END:::\n");
-                        ToolExecutionResultMessage message=ToolExecutionResultMessage.from(toolRequest, result);
-                        logger.info("message:{}",message);
+                        ToolExecutionResultMessage message = ToolExecutionResultMessage.from(toolRequest, result);
+                        logger.info("message:{}", message);
                         messages.add(message);
-                        memoryService.addMessage(sessionId,message);
+                        memoryService.addMessage(sessionId, message);
                         String userMsg = StringUtils.extractValue(message.text(), "userMsg");
                         if (StringUtils.hasText(userMsg)) {
                             sink.next(userMsg);
                             sink.complete();
-                            memoryService.addMessage(sessionId,new AiMessage(userMsg));
+                            memoryService.addMessage(sessionId, new AiMessage(userMsg));
                             return;
                         }
                     }
@@ -160,7 +167,7 @@ public class ChatController {
         });
     }
 
-    private StreamingChatLanguageModel createStreamingChatModel(ModelInfo config) {
+    private StreamingChatModel createStreamingChatModel(ModelInfo config) {
         return OpenAiStreamingChatModel.builder()
                 .baseUrl(config.getBaseUrl())
                 .apiKey(config.getApiKey())

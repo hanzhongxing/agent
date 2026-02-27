@@ -8,6 +8,8 @@ import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
+import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
+import dev.langchain4j.store.embedding.EmbeddingSearchResult;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
@@ -19,8 +21,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-public class RagService extends BaseService{
-    private final static Logger logger= LoggerFactory.getLogger(RagService.class);
+public class RagService extends BaseService {
+    private final static Logger logger = LoggerFactory.getLogger(RagService.class);
 
     @Autowired
     private AgentConfig agentConfig;
@@ -39,7 +41,8 @@ public class RagService extends BaseService{
     public synchronized void reindexAll() {
         File dir = new File(agentConfig.getRAGFilePath());
         if (dir.exists() && dir.isDirectory()) {
-            List<Document> documents = FileSystemDocumentLoader.loadDocuments(agentConfig.getRAGFilePath(), new ApacheTikaDocumentParser());
+            List<Document> documents = FileSystemDocumentLoader.loadDocuments(agentConfig.getRAGFilePath(),
+                    new ApacheTikaDocumentParser());
             for (Document doc : documents) {
                 ingestDocument(doc);
             }
@@ -52,12 +55,13 @@ public class RagService extends BaseService{
             public void run() {
                 TextSegment segment = TextSegment.from(document.text(), document.metadata());
                 try {
-                    EmbeddingModel embeddingModel= modelService.getEmbeddingModel();
-                    if(embeddingModel==null){
+                    EmbeddingModel embeddingModel = modelService.getEmbeddingModel();
+                    if (embeddingModel == null) {
                         return;
                     }
                     Embedding embedding = embeddingModel.embed(segment).content();
-                    logger.debug("Adding embedding for document, model={}, segmentLength={}", embeddingModel, segment.text().length());
+                    logger.debug("Adding embedding for document, model={}, segmentLength={}", embeddingModel,
+                            segment.text().length());
                     embeddingStore.add(embedding, segment);
                 } catch (Throwable t) {
                     logger.error("Failed to add embedding for document {}", document.metadata(), t);
@@ -72,12 +76,13 @@ public class RagService extends BaseService{
             public void run() {
                 TextSegment segment = TextSegment.from(content);
                 try {
-                    EmbeddingModel embeddingModel= modelService.getEmbeddingModel();
-                    if(embeddingModel==null){
+                    EmbeddingModel embeddingModel = modelService.getEmbeddingModel();
+                    if (embeddingModel == null) {
                         return;
                     }
                     Embedding embedding = embeddingModel.embed(segment).content();
-                    logger.debug("Adding embedding for content, model={}, segmentLength={}", embeddingModel, segment.text().length());
+                    logger.debug("Adding embedding for content, model={}, segmentLength={}", embeddingModel,
+                            segment.text().length());
                     embeddingStore.add(embedding, segment);
                 } catch (Throwable t) {
                     logger.error("Failed to add embedding for content segment", t);
@@ -87,12 +92,17 @@ public class RagService extends BaseService{
     }
 
     public List<TextSegment> search(String query) {
-        EmbeddingModel embeddingModel= modelService.getEmbeddingModel();
-        if(embeddingModel==null){
+        EmbeddingModel embeddingModel = modelService.getEmbeddingModel();
+        if (embeddingModel == null) {
             return null;
         }
         Embedding queryEmbedding = embeddingModel.embed(query).content();
-        List<EmbeddingMatch<TextSegment>> matches = embeddingStore.findRelevant(queryEmbedding, 5, 0.7);
-        return matches.stream().map(EmbeddingMatch::embedded).collect(Collectors.toList());
+        EmbeddingSearchRequest searchRequest = EmbeddingSearchRequest.builder()
+                .queryEmbedding(queryEmbedding)
+                .maxResults(5)
+                .minScore(0.7)
+                .build();
+        EmbeddingSearchResult<TextSegment> searchResult = embeddingStore.search(searchRequest);
+        return searchResult.matches().stream().map(EmbeddingMatch::embedded).collect(Collectors.toList());
     }
 }
